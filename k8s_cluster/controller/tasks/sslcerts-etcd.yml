@@ -1,0 +1,23 @@
+---
+
+- include_role:
+    name: kubernetes/etcd
+    tasks_from: sslcerts-etcd.yml
+
+- name: controller/sslcerts/etcd | Copy keys/certs to remotes
+  block:
+    - name: controller/sslcerts/etcd | create kubernetes cert directory on remotes
+      file: path={{k8s_cert_dir}} state=directory
+
+    - name: controller/sslcerts/etcd | Copy keys/certs to remotes
+      copy:
+        content: "{{ item.val }}"
+        dest: "{{ k8s_cert_dir }}/{{ item.key }}"
+        mode:  "{{ item.mode }}"
+      no_log: true
+      with_items:
+        - { key: 'etcd-crt.pem', val: "{{k8s_certs['etcd-crt.pem']}}", mode: '0644'}
+        - { key: 'etcd-key.pem', val: "{{k8s_certs['etcd-key.pem']}}", mode: '0600'}
+        - { key: 'ca-crt.pem', val: "{{ssl_ca['ca-crt.pem']}}", mode: '0644'}
+      notify: ["restart kube-apiserver"]
+  become: yes

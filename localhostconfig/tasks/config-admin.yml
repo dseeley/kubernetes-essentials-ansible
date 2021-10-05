@@ -1,0 +1,47 @@
+---
+
+- name: localhost/config/admin | Create certificate/ key
+  include_tasks: sslcerts-admin.yml
+
+#- name: localhost/config/admin | Create certificate/ key
+#  include_role:
+#    name: kubernetes/k8s_cluster/controller
+#    tasks_from: sslcerts-admin.yml
+
+- name: localhost/config/admin | create config directory
+  file: path={{k8s_home_kube_dir}}/{{cluster_name}} state=directory
+
+- name: localhost/kubectl | configure admin kubectl on localhost
+  shell: |
+    kubectl config set-cluster {{cluster_name}} --certificate-authority={{k8s_home_kube_dir}}/{{cluster_name}}/ca-crt.pem --embed-certs=true --server=https://{{apiserver.extvip}}:{{apiserver.secure_vip_port}}
+    kubectl config set-credentials admin --client-certificate={{k8s_home_kube_dir}}/{{cluster_name}}/admin-crt.pem --client-key={{k8s_home_kube_dir}}/{{cluster_name}}/admin-key.pem --embed-certs=true
+    kubectl config set-context {{cluster_name}} --cluster={{cluster_name}} --user=admin
+    kubectl config use-context {{cluster_name}}
+  when: k8s_certs is defined
+
+
+#- name: localhost/config/admin | write out kubeconfig    ## This will overwrite the existing config, rather than add to it
+#  become: yes
+#  copy:
+#    content: |
+#      apiVersion: v1
+#      clusters:
+#      - cluster:
+#          certificate-authority-data: {{ ssl_ca['ca-crt.pem'] | b64encode }}
+#          server: "{{ apiserver.inturl }}:{{apiserver.secure_vip_port}}"
+#        name: {{cluster_name}}
+#      contexts:
+#      - context:
+#          cluster: {{cluster_name}}
+#          user: admin
+#        name: {{cluster_name}}
+#      current-context: {{cluster_name}}
+#      kind: Config
+#      preferences: {}
+#      users:
+#      - name: admin
+#        user:
+#          client-certificate-data: {{ k8s_certs[admin-crt] | b64encode }}
+#          client-key-data: {{ k8s_certs[admin-key] | b64encode }}
+#    dest: "{{k8s_home_kube_dir}}/{{cluster_name}}/config"
+#    force: yes

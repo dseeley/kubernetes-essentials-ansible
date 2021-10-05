@@ -1,0 +1,87 @@
+---
+
+- name: Add the etcd user
+  become: yes
+  user: { name: "{{etcd.user}}", system: yes }
+
+- name: generate etcd certs
+  include_tasks: sslcerts-etcd.yml
+
+- name: Download etcd
+  become: yes
+  get_url:
+    url: "{{ etcd.download_url }}"
+    dest: "/tmp/{{ etcd.download_url | basename }}"
+
+- block:
+    - name: Unarchive etcd
+      become: yes
+      unarchive:
+        copy: no
+        src: "/tmp/{{ etcd.download_url | basename }}"
+        dest: "/tmp"
+        creates: "/tmp/{{ _etcd_unarchive_dir }}/etcd"
+
+    - name: Copy binaries from archive into etcd dir
+      become: yes
+      copy:
+        remote_src: True
+        src: "/tmp/{{ _etcd_unarchive_dir }}/{{ item }}"
+        dest: "{{ etcd.bin_dir }}"
+        mode: "u=rwx,g=rx,o=x"
+      with_items:
+        - etcd
+        - etcdctl
+      notify: ["restart etcd"]
+  vars:
+    _etcd_unarchive_dir: "{{ etcd.download_url | regex_replace('^.*\\/(.*?)\\.tar\\.gz$', '\\1') }}"
+
+- name: create etcd.data_dir
+  become: yes
+  file:
+    path: "{{ etcd.data_dir }}"
+    state: directory
+    owner: "{{etcd.user}}"
+    group: "{{etcd.user}}"
+    mode: '0700'
+  notify: ["restart etcd"]
+
+- name: Add etcd systemd service
+  become: yes
+  copy:
+    content: |
+      [Unit]
+      Description=etcd Daemon
+      Documentation=https://github.com/etcd-io
+      After=network.target
+
+      [Service]
+      Type=notify
+      User={{ etcd.user }}
+      ExecStart={{ etcd.bin_dir }}/etcd \
+          -name {{ inventory_hostname }} \
+          -cert-file {{ etcd.client_cert_file }} \
+          -key-file {{ etcd.client_key_file }} \
+          -peer-cert-file {{ etcd.peer_cert_file }} \
+          -peer-key-file {{ etcd.peer_key_file }} \
+          -trusted-ca-file {{ etcd.client_trusted_ca_file }} \
+          -peer-trusted-ca-file {{ etcd.peer_trusted_ca_file }} \
+          -peer-client-cert-auth \
+          -client-cert-auth \
+          -initial-advertise-peer-urls https://{{ ansible_default_ipv4.address }}:{{ etcd.peer_port }} \
+          -listen-peer-urls https://0.0.0.0:{{ etcd.peer_port }} \
+          -advertise-client-urls https://{{ ansible_default_ipv4.address }}:{{ etcd.client_port }} \
+          -listen-client-urls https://0.0.0.0:{{ etcd.client_port }} \
+          -initial-cluster-token etcd-{{cluster_name}} \
+          -initial-cluster {% for host in groups['etcd'] -%}{{ host }}=https://{{ hostvars[host]['ansible_default_ipv4']['address'] }}:{{ etcd.peer_port }}{% if not loop.last %},{% endif %}{% endfor %} \
+          -initial-cluster-state new \
+          -data-dir {{ etcd.data_dir }} \
+          -enable-v2
+      Restart=on-failure
+      RestartSec=5
+
+      [Install]
+      WantedBy=multi-user.target
+    dest: "/etc/systemd/system/etcd.service"
+    force: yes
+  notify: ["reload systemd", "restart etcd"]

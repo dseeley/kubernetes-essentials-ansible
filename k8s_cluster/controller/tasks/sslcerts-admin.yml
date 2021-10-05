@@ -1,0 +1,68 @@
+---
+
+- name: sslcerts/admin
+  block:
+    - name: "sslcerts/admin | Create {{ playbook_certs_k8s_file | dirname }} directory"
+      file: { path: "{{ playbook_certs_k8s_file | dirname }}", state: directory }
+      run_once: yes
+
+    - name: sslcerts/admin | Generate RSA private key
+      community.crypto.openssl_privatekey_pipe:
+      register: r__openssl_privatekey_pipe
+      no_log: true
+
+    - name: sslcerts/admin | Generate CSR
+      community.crypto.openssl_csr_pipe:
+        privatekey_content: "{{r__openssl_privatekey_pipe.privatekey}}"
+        key_usage: ["cRLSign", "digitalSignature", "keyCertSign", "keyEncipherment"]
+        key_usage_critical: yes
+        extended_key_usage: ["clientAuth", "serverAuth"]
+        extended_key_usage_critical: yes
+        subject: { CN: "admin", O: "system:masters", OU: "{{cluster_name}}" }
+      register: r__openssl_csr_pipe
+
+    - name: sslcerts/admin | Generate the self-signed CA certificate
+      community.crypto.x509_certificate_pipe:
+        provider: ownca
+        ownca_content: "{{ssl_ca['ca-crt.pem']}}"
+        ownca_privatekey_content: "{{ssl_ca['ca-key.pem']}}"
+        csr_content: "{{r__openssl_csr_pipe.csr}}"
+        selfsigned_not_after: "+3652d"       # Expiry in 10 years (incl leap years)
+      register: r__x509_certificate_pipe
+
+    - name: sslcerts/admin | Vault-encrypt the CA privatekey
+      ansible_vault:
+        plaintext: "{{r__openssl_privatekey_pipe.privatekey}}"
+        action: encrypt
+      register: r__ansible_vault_encrypt_ca_privatekey
+
+    - name: "sslcerts/admin | Create {{ playbook_certs_k8s_file }}"
+      copy:
+        content: "{{ {'k8s_certs': k8s_certs|default('')} | combine({'k8s_certs': {'admin-crt.pem': r__x509_certificate_pipe.certificate, 'admin-key.pem': r__ansible_vault_encrypt_ca_privatekey.vaulttext}}, recursive=True) | to_yaml_vaulted }}"
+        dest: "{{ playbook_certs_k8s_file }}"
+        force: yes
+  run_once: yes
+  delegate_to: localhost
+#  delegate_facts: yes
+  when: (k8s_certs is not defined) or (k8s_certs['admin-crt.pem'] is not defined) or (k8s_certs['admin-key.pem'] is not defined) or (recreate_certs is defined and recreate_certs)
+
+- name: "sslcerts/admin | Reload {{ playbook_certs_k8s_file }} - for all hosts"
+  include_vars: "{{ playbook_certs_k8s_file }}"
+
+#- name: sslcerts/admin | Copy keys/certs to remotes
+#  block:
+#    - name: sslcerts/admin | create kubernetes cert directory on remotes
+#      file: path={{k8s_cert_dir}} state=directory
+#
+#    - name: sslcerts/admin | Copy keys/certs to remotes
+#      copy:
+#        content: "{{ item.val }}"
+#        dest: "{{ k8s_cert_dir }}/{{ item.key }}"
+#        mode:  "{{ item.mode }}"
+#      no_log: true
+#      with_items:
+#        - { key: 'admin-crt.pem', val: "{{k8s_certs['admin-crt.pem']}}", mode: '0644'}
+#        - { key: 'admin-key.pem', val: "{{k8s_certs['admin-key.pem']}}", mode: '0600'}
+#        - { key: 'ca-crt.pem', val: "{{ssl_ca['ca-crt.pem']}}", mode: '0644'}
+#  become: yes
+#  when: groups['controller'] is defined and ansible_hostname in groups['controller']

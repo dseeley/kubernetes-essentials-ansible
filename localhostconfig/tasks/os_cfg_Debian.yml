@@ -1,0 +1,18 @@
+---
+
+- name: Add Google's apt key
+  become: yes
+  apt_key:
+    url: https://packages.cloud.google.com/apt/doc/apt-key.gpg
+
+- name: Adding google cloud sdk repository
+  become: yes
+  apt_repository:
+    repo: "deb [arch={{ 'amd64' if ansible_architecture == 'x86_64' else 'arm64' if ansible_architecture == 'aarch64' else ansible_architecture }}] https://packages.cloud.google.com/apt cloud-sdk main"
+    state: present
+
+- name: apt install on localhost
+  become: yes
+  apt:
+    name: ['build-essential', 'kubectl', 'netcat', 'google-cloud-sdk']
+    update_cache: True

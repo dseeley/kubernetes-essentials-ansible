@@ -1,0 +1,62 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tcpecho-deployment
+  namespace: default
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: tcpecho
+  template:
+    metadata:
+      labels:
+        app: tcpecho
+    spec:
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app: tcpecho
+      containers:
+        - name: tcpecho
+          image: dseeley/tcpecho:latest
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: tcpecho
+  namespace: default
+  labels:
+    app: tcpecho
+spec:
+  selector:
+    app: tcpecho
+  ports:
+  - port: 3495
+    protocol: TCP
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: tcpecho
+  namespace: default
+  annotations:
+    ingress.kubernetes.io/tcp-service-port: "3495"
+spec:
+  ingressClassName: haproxy
+  rules:
+    - http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: tcpecho
+                port:
+                  number: 3495

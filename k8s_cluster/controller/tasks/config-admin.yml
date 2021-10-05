@@ -1,0 +1,34 @@
+---
+
+- name: controller/config/admin | Create certificate/ key
+  include_tasks: sslcerts-admin.yml
+
+- name: controller/config/admin | create config directory
+  become: yes
+  file: path={{k8s_home_kube_dir}} state=directory
+
+- name: controller/config/admin | write out kubeconfig
+  become: yes
+  copy:
+    content: |
+      apiVersion: v1
+      clusters:
+      - cluster:
+          certificate-authority-data: {{ ssl_ca['ca-crt.pem'] | b64encode }}
+          server: "{{ apiserver.inturl }}:{{apiserver.secure_vip_port}}"
+        name: {{cluster_name}}
+      contexts:
+      - context:
+          cluster: {{cluster_name}}
+          user: admin
+        name: {{cluster_name}}
+      current-context: {{cluster_name}}
+      kind: Config
+      preferences: {}
+      users:
+      - name: admin
+        user:
+          client-certificate-data: {{ k8s_certs['admin-crt.pem'] | b64encode }}
+          client-key-data: {{ k8s_certs['admin-key.pem'] | b64encode }}
+    dest: "{{k8s_home_kube_dir}}/config"
+    force: yes

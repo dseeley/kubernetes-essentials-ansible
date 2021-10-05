@@ -1,0 +1,38 @@
+---
+
+- name: reload systemd
+  become: yes
+  systemd:
+    daemon_reload: yes
+  throttle: 1
+
+- name: restart kube-apiserver
+  become: yes
+  service:
+    name:   kube-apiserver
+    enabled: yes
+    state: restarted
+  throttle: 1
+
+- name: restart kube-controller-manager
+  become: yes
+  service:
+    name: kube-controller-manager
+    enabled: yes
+    state: restarted
+  throttle: 1
+
+- name: restart kube-scheduler
+  become: yes
+  service:
+    name: kube-scheduler
+    enabled: yes
+    state: restarted
+  throttle: 1
+
+- name: restart keepalived
+  become: yes
+  service:
+    name: keepalived
+    enabled: yes
+    state: restarted

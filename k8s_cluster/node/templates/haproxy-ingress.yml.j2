@@ -1,0 +1,276 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ingress-controller
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: ingress-controller
+  namespace: ingress-controller
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: ingress-controller
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - configmaps
+      - endpoints
+      - nodes
+      - pods
+      - secrets
+    verbs:
+      - list
+      - watch
+  - apiGroups:
+      - ""
+    resources:
+      - nodes
+    verbs:
+      - get
+  - apiGroups:
+      - ""
+    resources:
+      - services
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - extensions
+      - networking.k8s.io
+    resources:
+      - ingressclasses
+      - ingresses
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - ""
+    resources:
+      - events
+    verbs:
+      - create
+      - patch
+  - apiGroups:
+      - extensions
+      - networking.k8s.io
+    resources:
+      - ingresses/status
+    verbs:
+      - update
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: ingress-controller
+  namespace: ingress-controller
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - configmaps
+      - pods
+      - secrets
+      - namespaces
+    verbs:
+      - get
+  - apiGroups:
+      - ""
+    resources:
+      - configmaps
+    verbs:
+      - get
+      - update
+  - apiGroups:
+      - ""
+    resources:
+      - configmaps
+    verbs:
+      - create
+  - apiGroups:
+      - ""
+    resources:
+      - endpoints
+    verbs:
+      - get
+      - create
+      - update
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: ingress-controller
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: ingress-controller
+subjects:
+  - kind: ServiceAccount
+    name: ingress-controller
+    namespace: ingress-controller
+  - apiGroup: rbac.authorization.k8s.io
+    kind: User
+    name: ingress-controller
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: ingress-controller
+  namespace: ingress-controller
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: ingress-controller
+subjects:
+  - kind: ServiceAccount
+    name: ingress-controller
+    namespace: ingress-controller
+  - apiGroup: rbac.authorization.k8s.io
+    kind: User
+    name: ingress-controller
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    run: ingress-default-backend
+  name: ingress-default-backend
+  namespace: ingress-controller
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      run: ingress-default-backend
+  template:
+    metadata:
+      labels:
+        run: ingress-default-backend
+    spec:
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              run: ingress-default-backend
+      containers:
+{#        - name: ingress-default-backend#}
+{#          image: dseeley/pyechoserver:latest#}
+{#          env:#}
+{#            - name: SRV_PORT#}
+{#              value: "8080"#}
+        - name: ingress-default-backend
+          image: gcr.io/google_containers/defaultbackend:1.4
+          resources:
+            limits:
+              cpu: 10m
+              memory: 20Mi
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ingress-default-backend
+  namespace: ingress-controller
+spec:
+  selector:
+    run: ingress-default-backend
+  ports:
+    - port: 8080
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: haproxy-ingress
+  namespace: ingress-controller
+
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  labels:
+    run: haproxy-ingress
+  name: haproxy-ingress
+  namespace: ingress-controller
+spec:
+  updateStrategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      run: haproxy-ingress
+  template:
+    metadata:
+      labels:
+        run: haproxy-ingress
+    spec:
+      hostNetwork: true
+      tolerations:
+        - key: node-role.kubernetes.io/{{edge_ingress.node_role_name}}
+          operator: Equal
+          value: "true"
+      nodeSelector:
+        node-role.kubernetes.io/{{edge_ingress.node_role_name}}: "true"
+      serviceAccountName: ingress-controller
+      containers:
+        - name: haproxy-ingress
+          image: quay.io/jcmoraisjr/haproxy-ingress
+          args:
+            - --default-backend-service=$(POD_NAMESPACE)/ingress-default-backend
+            - --configmap=$(POD_NAMESPACE)/haproxy-ingress
+            - --sort-backends
+            - --allow-cross-namespace=true
+{#          ports:#}
+{#          - name: http#}
+{#            containerPort: 80#}
+{#          - name: https#}
+{#            containerPort: 443#}
+{#          - name: stat#}
+{#            containerPort: 1936#}
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 10253
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+
+---
+apiVersion: networking.k8s.io/v1
+kind: IngressClass
+metadata:
+  name: haproxy
+spec:
+  controller: haproxy-ingress.github.io/controller
+  parameters:
+    kind: ConfigMap
+    name: ingress-options-chezdj
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ingress-options-chezdj
+  namespace: ingress-controller
+data:
+  balance-algorithm: roundrobin
+  maxconn-server: "500"
+  ssl-redirect: "false"

@@ -1,0 +1,24 @@
+---
+
+- name: localhost/config/admin | Create certificate/ key
+  include_role:
+    name: kubernetes/k8s_cluster/controller
+    tasks_from: sslcerts-admin.yml
+
+- name: sslcerts/admin/localhost | copy keys/certs to localhost
+  block:
+    - name: sslcerts/admin/localhost | create kubernetes cert directory on localhost
+      file: { path: "{{ k8s_home_kube_dir }}/{{ cluster_name }}", state: directory }
+
+    - name: "sslcerts/admin/localhost | Copy keys/certs to localhost: {{ k8s_home_kube_dir }}/{{ cluster_name }}"
+      copy:
+        content: "{{ item.val }}"
+        dest: "{{ k8s_home_kube_dir }}/{{ cluster_name }}/{{ item.key }}"
+        mode:  "{{ item.mode }}"
+      no_log: true
+      with_items:
+        - { key: 'admin-crt.pem', val: "{{k8s_certs['admin-crt.pem']}}", mode: '0644'}
+        - { key: 'admin-key.pem', val: "{{k8s_certs['admin-key.pem']}}", mode: '0600'}
+        - { key: 'ca-crt.pem', val: "{{ssl_ca['ca-crt.pem']}}", mode: '0644'}
+  delegate_to: localhost
+  run_once: true

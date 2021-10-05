@@ -1,0 +1,10 @@
+---
+
+
+- name: localhost | Run OS-specific localhost config (if defined)
+  include_tasks: "{{item}}"
+  loop: "{{ query('first_found', params) }}"
+  vars: { params: { files: ["os_cfg_{{ ansible_os_family }}.yml"], skip: true } }
+
+- name: localhost | install and configure admin user
+  include_tasks: config-admin.yml

@@ -1,0 +1,68 @@
+---
+
+- name: controller/config/controller-manager | Create certificate/ key
+  include_tasks: sslcerts-controller-manager.yml
+
+- name: controller/config/controller-manager | create config directory
+  become: yes
+  file: path={{k8s_config_dir}} state=directory
+
+- name: controller/config/controller-manager | write out kubeconfig
+  become: yes
+  copy:
+    content: |
+      apiVersion: v1
+      clusters:
+      - cluster:
+          certificate-authority-data: {{ ssl_ca['ca-crt.pem'] | b64encode }}
+          server: "{{ apiserver.inturl }}:{{apiserver.secure_vip_port}}"
+        name: {{cluster_name}}
+      contexts:
+      - context:
+          cluster: {{cluster_name}}
+          user: system:kube-controller-manager
+        name: default
+      current-context: default
+      kind: Config
+      preferences: {}
+      users:
+      - name: system:kube-controller-manager
+        user:
+          client-certificate-data: {{ k8s_certs['controller-manager-crt.pem'] | b64encode }}
+          client-key-data: {{  k8s_certs['controller-manager-key.pem'] | b64encode }}
+    dest: "{{ k8s_config_dir }}/kube-controller-manager.kubeconfig"
+    force: yes
+  notify: ["restart kube-controller-manager"]
+
+- name: controller/config/controller-manager | Create the kube-controller-manager.service systemd unit file
+  become: yes
+  copy:
+    content: |
+      [Unit]
+      Description=Kubernetes Controller Manager
+      Documentation=https://github.com/kubernetes/kubernetes
+
+      [Service]
+      ExecStart={{k8s_bin_dir}}/kube-controller-manager \
+        --allocate-node-cidrs \
+        --bind-address=0.0.0.0 \
+        --cluster-cidr={{k8s_network.cluster_cidr}} \
+        --cluster-name={{cluster_name}} \
+        --cluster-signing-cert-file={{ca_crt_filepath}} \
+        --cluster-signing-key-file={{ca_key_filepath}} \
+        --kubeconfig={{k8s_config_dir}}/kube-controller-manager.kubeconfig \
+        --leader-elect=true \
+        --node-cidr-mask-size={{k8s_network.node_subnet_len}} \
+        --root-ca-file={{ca_crt_filepath}} \
+        --service-account-private-key-file={{serviceaccount_key_filepath}} \
+        --service-cluster-ip-range={{k8s_network.service_ip_cidr}} \
+        --use-service-account-credentials=true \
+        --v=2
+      Restart=on-failure
+      RestartSec=5
+
+      [Install]
+      WantedBy=multi-user.target
+    dest: "/etc/systemd/system/kube-controller-manager.service"
+    force: yes
+  notify: ["reload systemd", "restart kube-controller-manager"]

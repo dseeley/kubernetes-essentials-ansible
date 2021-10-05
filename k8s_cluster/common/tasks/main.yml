@@ -1,0 +1,36 @@
+---
+
+- name: common | write out hosts to /etc/hosts when no DNS in use
+  become: yes
+  blockinfile:
+    dest: "/etc/hosts"
+    block: "{{ hostvars | json_query(\"*.join(' ', [ansible_default_ipv4.address, ansible_hostname])\") | sort | join('\n') }}"
+    state: present
+    create: yes
+    marker: "# Ansible inventory hosts {mark}"
+  when: (cluster_vars.dns_server is not defined  or  cluster_vars.dns_server == '')  or  (cluster_vars.dns_user_domain is not defined  or  cluster_vars.dns_user_domain == "")
+
+- name: "common | Enable bridge netfilter manually when a bridging CNI is used (https://github.com/kubernetes/kubernetes/issues/24018)"
+  block:
+    - name: common | enable br_netfilter kernel module on boot
+      become: yes
+      lineinfile:
+        line: "br_netfilter"
+        path: /etc/modprobe.d/kubernetes.conf
+        create: true
+
+    - name: common | load the br-netfilter module
+      become: yes
+      modprobe:
+        name: br-netfilter
+        state: present
+
+    - name: common | (net.bridge.bridge-nf-call-iptables=1)
+      become: yes
+      sysctl:
+        name: net.bridge.bridge-nf-call-iptables
+        value: 1
+        sysctl_set: yes
+        state: present
+        reload: yes
+  when: flannel_version is defined  and  flannel_version != ""

@@ -1,0 +1,77 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-deployment
+  namespace: default
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: nginx-test
+  template:
+    metadata:
+      labels:
+        app: nginx-test
+    spec:
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app: nginx-test
+      initContainers:
+        - name: configworkdir
+          image: busybox
+          command: [ "sh", "-c", 'echo "<h1>$(hostname)</h1>" > /workdir/index.html' ]
+          volumeMounts:
+            - name: workdir
+              mountPath: "/workdir"
+      containers:
+        - name: nginx-test
+          image: nginx:latest
+#          command: [ "sh", "-c", 'sed -E "s/^(\\s+)(location \\/ \\{)$/\\1\\2\n\\1\\1sendfile off;/" /etc/nginx/conf.d/default.conf' ]
+          volumeMounts:
+            - name: workdir
+              mountPath: /usr/share/nginx/html
+      volumes:
+        - name: workdir
+          emptyDir: {}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-test
+  namespace: default
+  labels:
+    app: nginx-test
+spec:
+  selector:
+    app: nginx-test
+  ports:
+  - port: 80
+    protocol: TCP
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: nginx-test
+  namespace: default
+  annotations:
+    ingress.kubernetes.io/rewrite-target: /
+spec:
+  ingressClassName: haproxy
+  rules:
+#    - host: "nginx-test.{{cluster_vars.dns_user_domain}}"
+    - http:
+        paths:
+          - path: /nginx
+            pathType: Prefix
+            backend:
+              service:
+                name: nginx-test
+                port:
+                  number: 80

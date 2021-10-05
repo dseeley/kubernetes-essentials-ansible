@@ -1,0 +1,56 @@
+---
+
+- name: controller/config/apiserver | Create certificate/ key
+  include_tasks: sslcerts-apiserver.yml
+
+- name: controller/config/apiserver | create config directory
+  become: yes
+  file: path={{k8s_config_dir}}/ state=directory
+
+- name: controller/config/apiserver | Create the kube-apiserver.service systemd unit file
+  become: yes
+  copy:
+    content: |
+      [Unit]
+      Description=Kubernetes API Server
+      Documentation=https://github.com/kubernetes/kubernetes
+
+      [Service]
+      ExecStart={{k8s_bin_dir}}/kube-apiserver \
+        --advertise-address={{apiserver.vip}} \
+        --allow-privileged=true \
+        --apiserver-count=3 \
+        --audit-log-maxage=30 \
+        --audit-log-maxbackup=3 \
+        --audit-log-maxsize=100 \
+        --audit-log-path=/var/log/audit.log \
+        --authorization-mode=Node,RBAC \
+        --bind-address=0.0.0.0 \
+        --client-ca-file={{ca_crt_filepath}} \
+        --enable-admission-plugins=NamespaceLifecycle,NodeRestriction,LimitRanger,ServiceAccount,DefaultStorageClass,ResourceQuota \
+        --etcd-cafile={{etcd.client_trusted_ca_file}} \
+        --etcd-certfile={{etcd.client_cert_file}} \
+        --etcd-keyfile={{etcd.client_key_file}} \
+        --etcd-servers={% for node in groups['etcd'] %}https://{{hostvars[node]['ansible_default_ipv4']['address']}}:2379{% if not loop.last %},{% endif %}{% endfor %} \
+        --event-ttl=1h \
+        --kubelet-certificate-authority={{ca_crt_filepath}} \
+        --kubelet-client-certificate={{apiserver_crt_filepath}} \
+        --kubelet-client-key={{apiserver_key_filepath}} \
+        --runtime-config='api/all=true' \
+        --secure-port={{apiserver.secure_vip_port}} \
+        --service-account-key-file={{serviceaccount_crt_filepath}} \
+        --service-account-signing-key-file={{serviceaccount_key_filepath}} \
+        --service-account-issuer=https://{{apiserver.extvip}}:{{apiserver.secure_vip_port}} \
+        --service-cluster-ip-range={{k8s_network.service_ip_cidr}} \
+        --service-node-port-range=30000-32767 \
+        --tls-cert-file={{apiserver_crt_filepath}} \
+        --tls-private-key-file={{apiserver_key_filepath}} \
+        --v=2
+      Restart=on-failure
+      RestartSec=5
+
+      [Install]
+      WantedBy=multi-user.target
+    dest: "/etc/systemd/system/kube-apiserver.service"
+    force: yes
+  notify: ["reload systemd", "restart kube-apiserver"]

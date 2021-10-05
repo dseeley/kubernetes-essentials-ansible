@@ -1,0 +1,89 @@
+---
+
+- name: sslcerts/apiserver
+  block:
+    - name: "sslcerts/apiserver | Create {{ playbook_certs_k8s_file | dirname }} directory"
+      file: { path: "{{ playbook_certs_k8s_file | dirname }}", state: directory }
+      run_once: yes
+
+    - name: sslcerts/apiserver | Generate RSA private key
+      community.crypto.openssl_privatekey_pipe:
+      register: r__openssl_privatekey_pipe
+      no_log: true
+
+    - name: sslcerts/apiserver | Generate CSR
+      community.crypto.openssl_csr_pipe:
+        privatekey_content: "{{r__openssl_privatekey_pipe.privatekey}}"
+        key_usage: ["cRLSign", "digitalSignature", "keyCertSign", "keyEncipherment"]
+        key_usage_critical: yes
+        extended_key_usage: ["clientAuth", "serverAuth"]
+        extended_key_usage_critical: yes
+        subject: { CN: "kubernetes", "O": "Kubernetes", OU: "{{cluster_name}}" }
+        subject_alt_name: "{{ SANs }}"
+      register: r__openssl_csr_pipe
+      vars:
+        SANs: |
+          {% set SANs = [] -%}
+          {% set _ = SANs.extend(['DNS:localhost','DNS:kubernetes','DNS:kubernetes.default','DNS:kubernetes.default.svc','DNS:kubernetes.default.svc.'+k8s_network.cluster_tld]) -%}
+          {% set _ = SANs.append('DNS:' + apiserver.hostname) -%}
+          {% set _ = SANs.append('IP:' + k8s_network.service_ip_cidr | ipv4('1') | ipv4('address') ) -%}
+          {% set _ = SANs.append('IP:' + apiserver.vip) -%}
+          {% set _ = SANs.append('IP:' + apiserver.extvip) -%}
+          {% if cluster_vars.dns_cloud_internal_domain is defined and cluster_vars.dns_cloud_internal_domain != '' -%}
+            {% set _dummy = SANs.append('DNS:*.' + cluster_vars.dns_cloud_internal_domain) -%}
+          {%- endif %}
+          {% if cluster_vars.dns_nameserver_zone is defined and cluster_vars.dns_nameserver_zone != '' -%}
+            {% set _dummy = SANs.append('DNS:*.' + cluster_name + '.' + cluster_vars.dns_nameserver_zone) -%}
+          {%- endif %}
+          {%- for host in groups['controller'] -%}
+            {% set _dummy = SANs.append('DNS:' + host) -%}
+            {% set _dummy = SANs.append('IP:' + hostvars[host]['ansible_default_ipv4']['address']) -%}
+          {%- endfor %}
+          {{ SANs }}
+
+    - name: sslcerts/apiserver | Generate the self-signed CA certificate
+      community.crypto.x509_certificate_pipe:
+        provider: ownca
+        ownca_content: "{{ssl_ca['ca-crt.pem']}}"
+        ownca_privatekey_content: "{{ssl_ca['ca-key.pem']}}"
+        csr_content: "{{r__openssl_csr_pipe.csr}}"
+        selfsigned_not_after: "+3652d"       # Expiry in 10 years (incl leap years)
+      register: r__x509_certificate_pipe
+
+    - name: sslcerts/apiserver | Vault-encrypt the CA privatekey
+      ansible_vault:
+        plaintext: "{{r__openssl_privatekey_pipe.privatekey}}"
+        action: encrypt
+      register: r__ansible_vault_encrypt_ca_privatekey
+
+    - name: "sslcerts/apiserver | Create {{ playbook_certs_k8s_file }}"
+      copy:
+        content: "{{ {'k8s_certs': k8s_certs|default('')} | combine({'k8s_certs': {'apiserver-crt.pem': r__x509_certificate_pipe.certificate, 'apiserver-key.pem': r__ansible_vault_encrypt_ca_privatekey.vaulttext}}, recursive=True) | to_yaml_vaulted }}"
+        dest: "{{ playbook_certs_k8s_file }}"
+        force: yes
+      notify: ["restart kube-apiserver"]
+
+    - name: "sslcerts/apiserver | Reload {{ playbook_certs_k8s_file }}"
+      include_vars: "{{ playbook_certs_k8s_file }}"
+  run_once: yes
+  delegate_to: localhost
+  when: (k8s_certs is not defined) or (k8s_certs['apiserver-crt.pem'] is not defined) or (k8s_certs['apiserver-key.pem'] is not defined) or (recreate_certs is defined and recreate_certs)
+
+
+- name: sslcerts/apiserver | copy certs to remote
+  block:
+    - name: sslcerts/apiserver | create kubernetes cert directory on remote
+      file: path={{k8s_cert_dir}} state=directory
+
+    - name: sslcerts/apiserver | Copy kubectl admin SSL certificates to remotes
+      copy:
+        content: "{{ item.val }}"
+        dest: "{{ k8s_cert_dir }}/{{ item.key }}"
+        mode:  "{{ item.mode }}"
+      no_log: true
+      with_items:
+        - { key: 'apiserver-crt.pem', val: "{{k8s_certs['apiserver-crt.pem']}}", mode: '0644'}
+        - { key: 'apiserver-key.pem', val: "{{k8s_certs['apiserver-key.pem']}}", mode: '0600'}
+        - { key: 'ca-crt.pem', val: "{{ssl_ca['ca-crt.pem']}}", mode: '0644'}
+        - { key: 'ca-key.pem', val: "{{ssl_ca['ca-key.pem']}}", mode: '0600'}
+  become: yes

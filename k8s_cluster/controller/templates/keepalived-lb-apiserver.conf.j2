@@ -1,0 +1,53 @@
+
+global_defs {
+  script_user root
+  enable_script_security
+  vrrp_version 3
+  lvs_flush
+}
+
+vrrp_instance VI_1 {
+  state BACKUP
+  interface {{ ansible_default_ipv4.interface }}
+  virtual_router_id 55
+  priority 100
+  advert_int 1
+
+  track_interface {
+    {{ ansible_default_ipv4.interface }}
+  }
+
+  unicast_src_ip {{ ansible_default_ipv4.address }}
+  unicast_peer {
+    {% for peer in apiserver_keepalived_peers -%}
+    {{ peer }}
+    {% endfor -%}
+  }
+
+  virtual_ipaddress {
+    {{ apiserver.vip }}/{{ apiserver.vip_prefix }}
+  }
+
+  notify_master "/etc/keepalived/bypass_ipvs.sh del {{apiserver.vip}}"
+  notify_backup "/etc/keepalived/bypass_ipvs.sh add {{apiserver.vip}}"
+  notify_fault "/etc/keepalived/bypass_ipvs.sh add {{apiserver.vip}}"
+}
+
+{% if apiserver.lb_controller is defined  and  apiserver.lb_controller == "keepalived_ipvs" %}
+virtual_server {{ apiserver.vip }} {{ apiserver.secure_vip_port }} {
+  delay_loop 5
+  lvs_sched rr
+  lvs_method DR
+  protocol TCP
+
+  {% for real_server in apiserver_keepalived_real_servers -%}
+  real_server {{ real_server }} {{ apiserver.secure_vip_port }} {
+    weight 1
+    TCP_CHECK {
+      connect_port {{ apiserver.secure_vip_port }}
+      connect_timeout 3
+    }
+  }
+  {% endfor %}
+}
+{% endif %}

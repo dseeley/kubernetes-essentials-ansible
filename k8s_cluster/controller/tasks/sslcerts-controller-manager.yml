@@ -1,0 +1,50 @@
+---
+
+- name: sslcerts/controller-manager
+  block:
+    - name: "sslcerts/controller-manager | Create {{ playbook_certs_k8s_file | dirname }} directory"
+      file: { path: "{{ playbook_certs_k8s_file | dirname }}", state: directory }
+      run_once: yes
+
+    - name: sslcerts/controller-manager | Generate RSA private key
+      community.crypto.openssl_privatekey_pipe:
+      register: r__openssl_privatekey_pipe
+      no_log: true
+
+    - name: sslcerts/controller-manager | Generate CSR
+      community.crypto.openssl_csr_pipe:
+        privatekey_content: "{{r__openssl_privatekey_pipe.privatekey}}"
+        key_usage: ["cRLSign", "digitalSignature", "keyCertSign", "keyEncipherment"]
+        key_usage_critical: yes
+        extended_key_usage: ["clientAuth", "serverAuth"]
+        extended_key_usage_critical: yes
+        subject: { CN: "system:kube-controller-manager", "O": "system:kube-controller-manager", OU: "{{cluster_name}}" }
+      register: r__openssl_csr_pipe
+
+    - name: sslcerts/controller-manager | Generate the self-signed CA certificate
+      community.crypto.x509_certificate_pipe:
+        provider: ownca
+        ownca_content: "{{ssl_ca['ca-crt.pem']}}"
+        ownca_privatekey_content: "{{ssl_ca['ca-key.pem']}}"
+        csr_content: "{{r__openssl_csr_pipe.csr}}"
+        selfsigned_not_after: "+3652d"       # Expiry in 10 years (incl leap years)
+      register: r__x509_certificate_pipe
+
+    - name: sslcerts/controller-manager | Vault-encrypt the CA privatekey
+      ansible_vault:
+        plaintext: "{{r__openssl_privatekey_pipe.privatekey}}"
+        action: encrypt
+      register: r__ansible_vault_encrypt_ca_privatekey
+
+    - name: "sslcerts/controller-manager | Create {{ playbook_certs_k8s_file }}"
+      copy:
+        content: "{{ {'k8s_certs': k8s_certs|default('')} | combine({'k8s_certs': {'controller-manager-crt.pem': r__x509_certificate_pipe.certificate, 'controller-manager-key.pem': r__ansible_vault_encrypt_ca_privatekey.vaulttext}}, recursive=True) | to_yaml_vaulted }}"
+        dest: "{{ playbook_certs_k8s_file }}"
+        force: yes
+      notify: ["restart kube-controller-manager"]
+
+    - name: "sslcerts/controller-manager | Reload {{ playbook_certs_k8s_file }}"
+      include_vars: "{{ playbook_certs_k8s_file }}"
+  run_once: yes
+  delegate_to: localhost
+  when: (k8s_certs is not defined) or (k8s_certs['controller-manager-crt.pem'] is not defined) or (k8s_certs['controller-manager-key.pem'] is not defined) or (recreate_certs is defined and recreate_certs)

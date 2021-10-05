@@ -1,0 +1,103 @@
+---
+
+- name: controller | Install apiserver load balancing solution
+  block:
+    - name: controller | Install keepalived for the apiserver LB/IPVS (private-cloud only)
+      include_tasks: apiserver-lb-keepalived.yml
+      when: apiserver.vip_mgr == "keepalived"
+
+    - name: controller | Install GCE load balancer for apiserver (GCP)
+      include_tasks: apiserver-lb-gcp.yml
+      when: apiserver.vip_mgr == "gce_internal"
+
+- name: controller | Download & install kubectl
+  become: yes
+  get_url:
+    url: "https://storage.googleapis.com/kubernetes-release/release/{{ k8s_version }}/bin/linux/{{ 'amd64' if ansible_architecture == 'x86_64' else 'arm64' if ansible_architecture == 'aarch64' else ansible_architecture }}/kubectl"
+    dest: "/usr/local/bin/kubectl"
+    mode: 0755
+
+- name: controller | create bin directory
+  become: yes
+  file: path={{k8s_bin_dir}} state=directory
+
+- name: controller | Download & install binaries
+  become: yes
+  get_url:
+    url: "https://storage.googleapis.com/kubernetes-release/release/{{ k8s_version }}/bin/linux/{{ 'amd64' if ansible_architecture == 'x86_64' else 'arm64' if ansible_architecture == 'aarch64' else ansible_architecture }}/{{ item }}"
+    dest: "{{k8s_bin_dir}}/{{ item }}"
+    mode: 0755
+  with_items:
+    - kube-apiserver
+    - kube-controller-manager
+    - kube-scheduler
+
+- name: controller | create config directory
+  become: yes
+  file: path={{k8s_config_dir}}/ state=directory
+
+#- name: controller | Create EncryptionConfig
+#  become: yes
+#  copy:
+#    content: |-
+#      kind: EncryptionConfig
+#      apiVersion: v1
+#      resources:
+#        - resources:
+#            - secrets
+#          providers:
+#            - aescbc:
+#                keys:
+#                  - name: key1
+#                    secret: "{{ lookup('password', '/dev/null length=32') | b64encode}}"
+#            - identity: {}
+#    dest: "{{ k8s_config_dir }}/encryption-config.yaml"
+#    force: "{{'yes' if force_new_encryption_config is defined and force_new_encryption_config|bool else 'no'}}"
+#  notify: ["restart kube-apiserver"]
+
+- name: controller | generate and copy etcd certificates
+  include_tasks: sslcerts-etcd.yml
+
+- name: controller | Create serviceaccount certificate/ key
+  include_tasks: sslcerts-serviceaccount.yml
+
+- name: controller | Install/ configure scheduler
+  include_tasks: config-scheduler.yml
+
+- name: controller | Install/ configure apiserver
+  include_tasks: config-apiserver.yml
+
+- name: controller | Install/ configure controller-manager
+  include_tasks: config-controller-manager.yml
+
+- name: controller | Install/ configure scheduler
+  include_tasks: config-scheduler.yml
+
+- name: controller | flush handlers
+  meta: flush_handlers
+
+- name: controller | Wait for apiservers to be alive
+  uri:
+    url: "https://{{apiserver.extvip}}:{{apiserver.secure_vip_port}}/livez"
+    method: GET
+    status_code: 200
+    validate_certs: no
+  register: r__clusterlivezwait_result
+  until: "r__clusterlivezwait_result.status == 200"
+  retries: 60     #5 minutes
+  delay: 5
+
+
+- name: controller | Install/ configure admin
+  include_tasks: config-admin.yml
+
+
+- name: controller | apply kubelet_rbac
+  k8s:
+    kubeconfig: "{{k8s_home_kube_dir}}/config"
+    resource_definition: "{{ item | from_yaml }}"
+    validate:
+      fail_on_error: yes
+  loop: "{{ lookup('template', 'files/kubelet_rbac.yml').split('---') | select() }}"
+  delegate_to: localhost
+  run_once: true

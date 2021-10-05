@@ -1,0 +1,31 @@
+---
+
+- name: reload systemd
+  become: yes
+  systemd:
+    daemon_reload: yes
+  throttle: 1
+
+- name: restart containerd
+  become: yes
+  service:
+    name: containerd
+    enabled: yes
+    state: restarted
+  throttle: 1
+
+- name: restart kubelet
+  become: yes
+  service:
+    name:   kubelet
+    enabled: yes
+    state: restarted
+  throttle: 1
+
+- name: restart kube-proxy
+  become: yes
+  service:
+    name: kube-proxy
+    enabled: yes
+    state: restarted
+  throttle: 1

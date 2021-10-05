@@ -1,0 +1,16 @@
+---
+
+- name: Redeploy
+  hosts: localhost
+  connection: local
+  tasks:
+    - name: "Get dependent roles via ansible-galaxy"
+      local_action: "command ansible-galaxy install --ignore-errors -r requirements.yml"
+      tags: ["always"]
+
+    - name: Run redeploy
+      include_role:
+        name: clusterverse/redeploy
+      vars:
+        mainclusteryml: "cluster.yml"
+        predeleterole: ""

@@ -1,0 +1,106 @@
+---
+
+- name: node/config/kubelet | generate and copy certificates
+  include_tasks: sslcerts-kubelet.yml
+
+- name: node/config/kubelet | create bin directory
+  become: yes
+  file: path={{k8s_bin_dir}} state=directory
+
+- name: node/config/kubelet | Download & install
+  become: yes
+  get_url:
+    url: "https://storage.googleapis.com/kubernetes-release/release/{{ k8s_version }}/bin/linux/{{ 'amd64' if ansible_architecture == 'x86_64' else 'arm64' if ansible_architecture == 'aarch64' else ansible_architecture }}/kubelet"
+    dest: "{{k8s_bin_dir}}/kubelet"
+    mode: 0755
+  notify: ["restart kubelet"]
+
+- name: node/config/kubelet
+  block:
+    - name: node/config/kubelet | create config directory
+      become: yes
+      file: path={{k8s_config_dir}}/kubelet state=directory
+
+    - name: node/config/kubelet | write out kubeconfig
+      become: yes
+      copy:
+        content: |
+          apiVersion: v1
+          clusters:
+          - cluster:
+              certificate-authority-data: {{ ssl_ca['ca-crt.pem'] | b64encode }}
+              server: "{{ apiserver.inturl }}:{{apiserver.secure_vip_port}}"
+            name: {{cluster_name}}
+          contexts:
+          - context:
+              cluster: {{cluster_name}}
+              user: system:node:{{ansible_hostname}}
+            name: default
+          current-context: default
+          kind: Config
+          preferences: {}
+          users:
+          - name: system:node:{{ansible_hostname}}
+            user:
+              client-certificate-data: {{ k8s_certs[crt_varname] | b64encode }}
+              client-key-data: {{ k8s_certs[key_varname] | b64encode }}
+        dest: "{{ k8s_config_dir }}/kubelet/kubeconfig"
+        force: yes
+      notify: ["restart kubelet"]
+
+    - name: node/config/kubelet | Create the kubelet-config.yaml configuration file
+      become: yes
+      copy:
+        content: |
+          kind: KubeletConfiguration
+          apiVersion: kubelet.config.k8s.io/v1beta1
+          authentication:
+            anonymous:
+              enabled: false
+            webhook:
+              enabled: true
+            x509:
+              clientCAFile: "{{ca_crt_filepath}}"
+          authorization:
+            mode: Webhook
+          clusterDomain: "{{k8s_network.cluster_tld}}"
+          clusterDNS:
+            - "{{k8s_network.dns_ip}}"
+          podCIDR: ""
+          resolvConf: "/run/systemd/resolve/resolv.conf"
+          runtimeRequestTimeout: "15m"
+          tlsCertFile: "{{k8s_cert_dir}}/{{crt_varname}}"
+          tlsPrivateKeyFile: "{{k8s_cert_dir}}/{{key_varname}}"
+        dest: "{{ k8s_config_dir }}/kubelet/kubelet-config.yaml"
+        force: yes
+      notify: ["restart kubelet"]
+
+    - name: node/config/kubelet | Create the kubelet.service systemd unit file
+      become: yes
+      copy:
+        content: |
+          [Unit]
+          Description=Kubernetes Kubelet
+          Documentation=https://github.com/kubernetes/kubernetes
+          After=containerd.service
+          Requires=containerd.service
+
+          [Service]
+          ExecStart={{k8s_bin_dir}}/kubelet \
+            --config={{ k8s_config_dir }}/kubelet/kubelet-config.yaml \
+            --container-runtime=remote \
+            --container-runtime-endpoint=unix:///var/run/containerd/containerd.sock \
+            --kubeconfig={{ k8s_config_dir }}/kubelet/kubeconfig \
+            --register-node=true \
+            --v=2
+          Restart=on-failure
+          RestartSec=5
+
+          [Install]
+          WantedBy=multi-user.target
+        dest: "/etc/systemd/system/kubelet.service"
+        force: yes
+      notify: ["reload systemd", "restart kubelet"]
+  vars:
+    crt_varname: "kubelet-crt-{{ansible_hostname}}.pem"
+    key_varname: "kubelet-key-{{ansible_hostname}}.pem"
