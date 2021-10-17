@@ -6,8 +6,8 @@ k8s_network:
   cluster_cidr: 10.234.0.0/16         # Overall pod network range for entire cluster
   node_subnet_len: 24                 # portion of cluster_cidr, per node
   service_ip_cidr: 10.233.0.0/18      # ip range for cluster services
-  dns_ip: 10.233.0.10                 # Cluster DNS resolution (coredns).  Must be from {{k8s_network.service_ip_cidr}}
-  cluster_tld: "kubernetes"           # Cluster dns TLD
+  dns_ip: 10.233.0.10                 # Cluster DNS server IP (coredns).  Must be from {{k8s_network.service_ip_cidr}}
+  cluster_tld: "kubernetes"           # Cluster DNS TLD
 
 flannel_version: v0.14.0
 
@@ -15,27 +15,19 @@ coredns_image: coredns/coredns:1.8.4
 
 kube_dashboard_image: kubernetesui/dashboard:v2.3.1
 
-edge_ingress:
-  lb_controller: ""    # haproxy-ingress, GCP, AWS
-  vip_mgr: ""          # <empty>, kube-keepalived-vip
-  node_role_name: "edge-ingress"
-  vipname: "{{cluster_name}}-lbvip"
-  vip: 192.168.1.49
-  vip_prefix: 25
-  extvip: 192.168.1.49
-  extvip_prefix: 25
-
 apiserver:
-  lb_controller: ""
-  vip_mgr: ""
-  secure_vip_port: 443
-  vip: 192.168.1.48
-  vip_prefix: 25
-  extvip: 192.168.1.48
-  extvip_prefix: 25
-  hostname: "{{cluster_name}}-apiservervip"
-  inturl: "https://192.168.1.48"
-  exturl: "{% if cluster_vars.dns_server is defined %}https://{{cluster_name}}-apiservervip.{{cluster_vars.dns_nameserver_zone}}{% endif %}"
+  url: "{% if cluster_vars.dns_server is defined and cluster_vars.dns_server != '' %}https://{{cluster_name}}-apiserver.{{cluster_vars.dns_nameserver_zone}}{% endif %}"
+  secure_port: 443
+  lb_ha_mgr: ""         # The load-balancing/HA solution for apiserver (because of https://github.com/kubernetes/kubernetes/issues/18174).  e.g.: keepalived_ipvs, aws_dns_healthcheck, gcp_dns_healthcheck
+  keepalived:
+    vip_cidr: ""        # MUST be present for apiserver.lb_ha_mgr="keepalived_ipvs"; will be filled automatically for aws/gcp
+
+edge_ingress:
+  node_role_name: "edge-ingress"
+  controller: ""        # The Ingress Controller.  e.g.: haproxy-ingress
+  ha_mgr: ""            # The HA mechanism for node-edge (ingress) nodes.  e.g.: kube-keepalived-vip, aws_dns_healthcheck, gcp_dns_healthcheck
+  keepalived:
+    vip_cidr: ""        # MUST be present for edge_ingress.ha_mgr="kube-keepalived-vip"; will be filled automatically for aws/gcp
 
 k8s_bin_dir: /opt/kubernetes
 k8s_config_dir: /etc/kubernetes

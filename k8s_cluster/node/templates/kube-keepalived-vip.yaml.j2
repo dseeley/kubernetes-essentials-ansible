@@ -106,4 +106,4 @@ metadata:
   name: vip-configmap
   namespace: kube-system
 data:
-  {{edge_ingress.vip}}: ""
+  {{edge_ingress.keepalived.vip_cidr | ipaddr('address')}}: ""

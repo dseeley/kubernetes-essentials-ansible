@@ -46,4 +46,4 @@
     - name: "sslcerts/kube_proxy | Reload {{ playbook_certs_k8s_file }}"
       include_vars: "{{ playbook_certs_k8s_file }}"
   delegate_to: localhost
-  when: (k8s_certs is not defined) or (k8s_certs['kubeproxy-crt.pem'] is not defined) or (k8s_certs['kubeproxy-key.pem'] is not defined) or (recreate_certs is defined and recreate_certs)
+  when: (k8s_certs is not defined) or (k8s_certs['kubeproxy-crt.pem'] is not defined) or (k8s_certs['kubeproxy-key.pem'] is not defined) or (recreate_certs is defined and recreate_certs|bool)

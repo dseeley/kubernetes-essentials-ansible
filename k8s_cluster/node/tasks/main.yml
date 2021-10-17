@@ -72,7 +72,7 @@
 
 - name: node | Wait for nodes to be ready
   uri:
-    url: "https://{{apiserver.extvip}}:{{apiserver.secure_vip_port}}/api/v1/nodes/"
+    url: "https://{{apiserver.keepalived.vip_cidr | ipaddr('address')}}:{{apiserver.secure_port}}/api/v1/nodes/"
     method: GET
     status_code: 200
     validate_certs: no
@@ -117,7 +117,7 @@
   when: groups['node-edge'] is defined and ansible_hostname in groups['node-edge']
 
 
-- name: node/edge/lb_controller/haproxy-ingress | apply config
+- name: node/edge/controller/haproxy-ingress | apply config
   k8s:
     kubeconfig: "{{k8s_home_kube_dir}}/config"
     apply: yes
@@ -126,7 +126,7 @@
   loop: "{{ lookup('template', 'templates/haproxy-ingress.yml.j2').split('---') | select() }}"
   delegate_to: localhost
   run_once: true
-  when: edge_ingress.lb_controller == "haproxy-ingress"
+  when: edge_ingress.controller == "haproxy-ingress"
 
 - name: node/edge/vip/keepalived-vip | apply config
   k8s:
@@ -137,9 +137,9 @@
   loop: "{{ lookup('template', 'templates/kube-keepalived-vip.yaml.j2').split('---') | select() }}"
   delegate_to: localhost
   run_once: true
-  when: edge_ingress.vip_mgr == "kube-keepalived-vip"  and  edge_ingress.vip is defined and edge_ingress.vip != ""
+  when: edge_ingress.ha_mgr == "kube-keepalived-vip"  and  edge_ingress.keepalived.vip_cidr is defined and edge_ingress.keepalived.vip_cidr != ""
 
 
-#- name: node/edge/lb_controller/gcp | Install application loadbalancer
+#- name: node/edge/controller/gcp | Install application loadbalancer
 #  include_tasks: gce-lb-apps.yml
-#  when: edge_ingress.lb_controller == "gcp_external"
+#  when: edge_ingress.controller == "gcp_external"

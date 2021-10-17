@@ -44,7 +44,7 @@
   run_once: yes
   delegate_to: localhost
 #  delegate_facts: yes
-  when: (k8s_certs is not defined) or (k8s_certs['admin-crt.pem'] is not defined) or (k8s_certs['admin-key.pem'] is not defined) or (recreate_certs is defined and recreate_certs)
+  when: (k8s_certs is not defined) or (k8s_certs['admin-crt.pem'] is not defined) or (k8s_certs['admin-key.pem'] is not defined) or (recreate_certs is defined and recreate_certs|bool)
 
 - name: "sslcerts/admin | Reload {{ playbook_certs_k8s_file }} - for all hosts"
   include_vars: "{{ playbook_certs_k8s_file }}"

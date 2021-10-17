@@ -25,26 +25,26 @@ vrrp_instance VI_1 {
   }
 
   virtual_ipaddress {
-    {{ apiserver.vip }}/{{ apiserver.vip_prefix }}
+    {{ apiserver.keepalived.vip_cidr }}
   }
 
-  notify_master "/etc/keepalived/bypass_ipvs.sh del {{apiserver.vip}}"
-  notify_backup "/etc/keepalived/bypass_ipvs.sh add {{apiserver.vip}}"
-  notify_fault "/etc/keepalived/bypass_ipvs.sh add {{apiserver.vip}}"
+  notify_master "/etc/keepalived/bypass_ipvs.sh del {{apiserver.keepalived.vip_cidr | ipaddr('address')}}"
+  notify_backup "/etc/keepalived/bypass_ipvs.sh add {{apiserver.keepalived.vip_cidr | ipaddr('address')}}"
+  notify_fault "/etc/keepalived/bypass_ipvs.sh add {{apiserver.keepalived.vip_cidr | ipaddr('address')}}"
 }
 
-{% if apiserver.lb_controller is defined  and  apiserver.lb_controller == "keepalived_ipvs" %}
-virtual_server {{ apiserver.vip }} {{ apiserver.secure_vip_port }} {
+{% if apiserver.lb_ha_mgr is defined  and  apiserver.lb_ha_mgr == "keepalived_ipvs" %}
+virtual_server {{ apiserver.keepalived.vip_cidr | ipaddr('address') }} {{ apiserver.secure_port }} {
   delay_loop 5
   lvs_sched rr
   lvs_method DR
   protocol TCP
 
   {% for real_server in apiserver_keepalived_real_servers -%}
-  real_server {{ real_server }} {{ apiserver.secure_vip_port }} {
+  real_server {{ real_server }} {{ apiserver.secure_port }} {
     weight 1
     TCP_CHECK {
-      connect_port {{ apiserver.secure_vip_port }}
+      connect_port {{ apiserver.secure_port }}
       connect_timeout 3
     }
   }

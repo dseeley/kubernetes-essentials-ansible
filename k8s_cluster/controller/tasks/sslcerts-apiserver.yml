@@ -25,13 +25,9 @@
         SANs: |
           {% set SANs = [] -%}
           {% set _ = SANs.extend(['DNS:localhost','DNS:kubernetes','DNS:kubernetes.default','DNS:kubernetes.default.svc','DNS:kubernetes.default.svc.'+k8s_network.cluster_tld]) -%}
-          {% set _ = SANs.append('DNS:' + apiserver.hostname) -%}
           {% set _ = SANs.append('IP:' + k8s_network.service_ip_cidr | ipv4('1') | ipv4('address') ) -%}
-          {% set _ = SANs.append('IP:' + apiserver.vip) -%}
-          {% set _ = SANs.append('IP:' + apiserver.extvip) -%}
-          {% if cluster_vars.dns_cloud_internal_domain is defined and cluster_vars.dns_cloud_internal_domain != '' -%}
-            {% set _dummy = SANs.append('DNS:*.' + cluster_vars.dns_cloud_internal_domain) -%}
-          {%- endif %}
+          {% set _ = SANs.append('IP:' + apiserver.keepalived.vip_cidr | ipaddr('address')) -%}
+          {% set _ = SANs.append('IP:' + apiserver.keepalived.vip_cidr | ipaddr('address')) -%}
           {% if cluster_vars.dns_nameserver_zone is defined and cluster_vars.dns_nameserver_zone != '' -%}
             {% set _dummy = SANs.append('DNS:*.' + cluster_name + '.' + cluster_vars.dns_nameserver_zone) -%}
           {%- endif %}
@@ -67,7 +63,7 @@
       include_vars: "{{ playbook_certs_k8s_file }}"
   run_once: yes
   delegate_to: localhost
-  when: (k8s_certs is not defined) or (k8s_certs['apiserver-crt.pem'] is not defined) or (k8s_certs['apiserver-key.pem'] is not defined) or (recreate_certs is defined and recreate_certs)
+  when: (k8s_certs is not defined) or (k8s_certs['apiserver-crt.pem'] is not defined) or (k8s_certs['apiserver-key.pem'] is not defined) or (recreate_certs is defined and recreate_certs|bool)
 
 
 - name: sslcerts/apiserver | copy certs to remote

@@ -47,4 +47,4 @@
       include_vars: "{{ playbook_certs_k8s_file }}"
   run_once: yes
   delegate_to: localhost
-  when: (k8s_certs is not defined) or (k8s_certs['controller-manager-crt.pem'] is not defined) or (k8s_certs['controller-manager-key.pem'] is not defined) or (recreate_certs is defined and recreate_certs)
+  when: (k8s_certs is not defined) or (k8s_certs['controller-manager-crt.pem'] is not defined) or (k8s_certs['controller-manager-key.pem'] is not defined) or (recreate_certs is defined and recreate_certs|bool)

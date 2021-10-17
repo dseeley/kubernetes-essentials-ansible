@@ -12,16 +12,6 @@
           register: r__openssl_privatekey_pipe
           no_log: true
 
-        - name: sslcerts/kubelet | set DNS SANs for node-edge (when node-edge are load-balanced internally using keepalived)
-          set_fact:
-            kubelet_dns_san: "{% for host in groups['node-edge'] %}DNS:{{host}}{% if not loop.last %},{% endif %}{% endfor %}"
-          when: (apiserver.vip_mgr == "keepalived") and (groups['node-edge'] is defined and ansible_hostname in groups['node-edge'])
-
-        - name: sslcerts/kubelet | set DNS SANs for non-node-edge and node-edge when node-edge are not load-balanced internally using keepalived
-          set_fact:
-            kubelet_dns_san: "DNS:{{ansible_hostname}}"
-          when: (apiserver.vip_mgr != "keepalived") or ((groups['node-edge'] is not defined) or (groups['node-edge'] is defined and ansible_hostname not in groups['node-edge']))
-
         - name: sslcerts/kubelet | Generate CSR
           community.crypto.openssl_csr_pipe:
             privatekey_content: "{{r__openssl_privatekey_pipe.privatekey}}"
@@ -32,6 +22,13 @@
             subject: { CN: "system:node:{{ansible_hostname}}", "O": "system:nodes", OU: "{{cluster_name}}" }
             subject_alt_name: "{{ kubelet_dns_san }}"
           register: r__openssl_csr_pipe
+          vars:
+            kubelet_dns_san: |-
+              {%- if (apiserver.lb_ha_mgr == "keepalived_ipvs") and (groups['node-edge'] is defined and ansible_hostname in groups['node-edge']) -%}
+                {%- for host in groups['node-edge'] -%}DNS:{{host}}{% if not loop.last %},{% endif %}{% endfor %}
+              {%- else -%}
+                DNS: {{ansible_hostname}}
+              {%- endif -%}
 
         - name: sslcerts/kubelet | Generate the self-signed certificate
           community.crypto.x509_certificate_pipe:
@@ -47,13 +44,6 @@
             plaintext: "{{r__openssl_privatekey_pipe.privatekey}}"
             action: encrypt
           register: r__ansible_vault_encrypt_ca_privatekey
-
-#        - name: sslcerts/kubelet | Combine the existing k8s_certs with the new kubelet crt/key for each of 'play_hosts' - create 'k8s_certs_to_combine'
-#          set_fact:
-#            k8s_certs_to_combine: "{{ k8s_certs_to_combine | default({'k8s_certs': k8s_certs|default('')}) | combine(_kublet_certs_to_combine, recursive=True) }}"
-#          vars:
-#            _kublet_certs_to_combine: "{% set res = { 'k8s_certs': { 'kubelet-crt-'+item+'.pem': hostvars[item].r__x509_certificate_pipe.certificate, 'kubelet-key-'+item+'.pem': hostvars[item].r__ansible_vault_encrypt_ca_privatekey.vaulttext } } %}{{res}}"
-#          with_items: "{{ play_hosts }}"
 
         - name: sslcerts/kubelet | Create playbook_certs_k8s_file after combining the existing 'k8s_certs' with the new kubelet crt/key for each of 'play_hosts'
           copy:

@@ -1,13 +1,5 @@
 ---
 
-edge_ingress:
-  lb_controller: "haproxy-ingress"
-  vip_mgr: "kube-keepalived-vip"
-
-apiserver:
-  lb_controller: "keepalived_ipvs"
-  vip_mgr: "keepalived"
-
 cluster_vars:
   dns_cloud_internal_domain: ""        # The cloud-internal zone as defined by the cloud provider (e.g. GCP, AWS)
   dns_server: ""                       # Specify DNS server. nsupdate, route53 or clouddns.  If empty string is specified, no DNS will be added.

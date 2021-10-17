@@ -29,7 +29,7 @@
           clusters:
           - cluster:
               certificate-authority-data: {{ ssl_ca['ca-crt.pem'] | b64encode }}
-              server: "{{ apiserver.inturl }}:{{apiserver.secure_vip_port}}"
+              server: "{% if apiserver.url is defined and apiserver.url != '' %}{{ apiserver.url }}{% else %}https://{{apiserver.keepalived.vip_cidr | ipaddr('address')}}{% endif %}:{{apiserver.secure_port}}"
             name: {{cluster_name}}
           contexts:
           - context:

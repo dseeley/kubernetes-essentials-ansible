@@ -4,11 +4,11 @@
   block:
     - name: controller | Install keepalived for the apiserver LB/IPVS (private-cloud only)
       include_tasks: apiserver-lb-keepalived.yml
-      when: apiserver.vip_mgr == "keepalived"
+      when: apiserver.lb_ha_mgr == "keepalived_ipvs"
 
     - name: controller | Install GCE load balancer for apiserver (GCP)
       include_tasks: apiserver-lb-gcp.yml
-      when: apiserver.vip_mgr == "gce_internal"
+      when: apiserver.lb_ha_mgr == "gce_internal"
 
 - name: controller | Download & install kubectl
   become: yes
@@ -78,7 +78,7 @@
 
 - name: controller | Wait for apiservers to be alive
   uri:
-    url: "https://{{apiserver.extvip}}:{{apiserver.secure_vip_port}}/livez"
+    url: "https://{{apiserver.keepalived.vip_cidr | ipaddr('address')}}:{{apiserver.secure_port}}/livez"
     method: GET
     status_code: 200
     validate_certs: no
