@@ -13,7 +13,7 @@
 
 - name: localhost/kubectl | configure admin kubectl on localhost
   shell: |
-    kubectl config set-cluster {{cluster_name}} --certificate-authority={{k8s_home_kube_dir}}/{{cluster_name}}/ca-crt.pem --embed-certs=true --server=https://{{apiserver.keepalived.vip_cidr | ipaddr('address')}}:{{apiserver.secure_port}}
+    kubectl config set-cluster {{cluster_name}} --certificate-authority={{k8s_home_kube_dir}}/{{cluster_name}}/ca-crt.pem --embed-certs=true --server={% if apiserver.url is defined and apiserver.url != '' %}{{ apiserver.url }}{% elif apiserver.keepalived.vip_cidr is defined and apiserver.keepalived.vip_cidr != '' %}https://{{apiserver.keepalived.vip_cidr | ipaddr('address')}}{% endif %}:{{apiserver.secure_port}}
     kubectl config set-credentials admin --client-certificate={{k8s_home_kube_dir}}/{{cluster_name}}/admin-crt.pem --client-key={{k8s_home_kube_dir}}/{{cluster_name}}/admin-key.pem --embed-certs=true
     kubectl config set-context {{cluster_name}} --cluster={{cluster_name}} --user=admin
     kubectl config use-context {{cluster_name}}

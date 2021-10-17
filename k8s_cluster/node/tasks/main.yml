@@ -72,7 +72,7 @@
 
 - name: node | Wait for nodes to be ready
   uri:
-    url: "https://{{apiserver.keepalived.vip_cidr | ipaddr('address')}}:{{apiserver.secure_port}}/api/v1/nodes/"
+    url: "{% if apiserver.url is defined and apiserver.url != '' %}{{ apiserver.url }}{% elif apiserver.keepalived.vip_cidr is defined and apiserver.keepalived.vip_cidr != '' %}https://{{apiserver.keepalived.vip_cidr | ipaddr('address')}}{% endif %}:{{apiserver.secure_port}}/api/v1/nodes/"
     method: GET
     status_code: 200
     validate_certs: no

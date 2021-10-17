@@ -187,7 +187,7 @@ spec:
             # Uncomment the following line to manually specify Kubernetes API server Host
             # If not specified, Dashboard will attempt to auto discover the API server and connect
             # to it. Uncomment only if the default does not work.
-            # - --apiserver-host="{% if apiserver.url is defined and apiserver.url != '' %}{{ apiserver.url }}{% else %}https://{{apiserver.keepalived.vip_cidr | ipaddr('address')}}{% endif %}:{{apiserver.secure_port}}"
+            # - --apiserver-host="{% if apiserver.url is defined and apiserver.url != '' %}{{ apiserver.url }}{% elif apiserver.keepalived.vip_cidr is defined and apiserver.keepalived.vip_cidr != '' %}https://{{apiserver.keepalived.vip_cidr | ipaddr('address')}}{% endif %}:{{apiserver.secure_port}}"
           volumeMounts:
             - name: kubernetes-dashboard-certs
               mountPath: /certs

@@ -3,7 +3,7 @@
 - name: controller | Install apiserver load balancing solution
   block:
     - name: controller | Install keepalived for the apiserver LB/IPVS (private-cloud only)
-      include_tasks: apiserver-lb-keepalived.yml
+      include_tasks: apiserver-lb-ha-keepalived.yml
       when: apiserver.lb_ha_mgr == "keepalived_ipvs"
 
     - name: controller | Install GCE load balancer for apiserver (GCP)
@@ -78,12 +78,12 @@
 
 - name: controller | Wait for apiservers to be alive
   uri:
-    url: "https://{{apiserver.keepalived.vip_cidr | ipaddr('address')}}:{{apiserver.secure_port}}/livez"
+    url: "https://{{ansible_host}}:{{apiserver.secure_port}}/livez"
     method: GET
     status_code: 200
     validate_certs: no
-  register: r__clusterlivezwait_result
-  until: "r__clusterlivezwait_result.status == 200"
+  register: r__uri__clusterlivez
+  until: "r__uri__clusterlivez.status == 200"
   retries: 60     #5 minutes
   delay: 5
 

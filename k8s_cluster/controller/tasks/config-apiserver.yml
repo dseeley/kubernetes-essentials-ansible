@@ -17,7 +17,6 @@
 
       [Service]
       ExecStart={{k8s_bin_dir}}/kube-apiserver \
-        --advertise-address={{apiserver.keepalived.vip_cidr | ipaddr('address')}} \
         --allow-privileged=true \
         --apiserver-count=3 \
         --audit-log-maxage=30 \
@@ -40,7 +39,7 @@
         --secure-port={{apiserver.secure_port}} \
         --service-account-key-file={{serviceaccount_crt_filepath}} \
         --service-account-signing-key-file={{serviceaccount_key_filepath}} \
-        --service-account-issuer=https://{{apiserver.keepalived.vip_cidr | ipaddr('address')}}:{{apiserver.secure_port}} \
+        --service-account-issuer={% if apiserver.url is defined and apiserver.url != '' %}{{ apiserver.url }}{% elif apiserver.keepalived.vip_cidr is defined and apiserver.keepalived.vip_cidr != '' %}https://{{apiserver.keepalived.vip_cidr | ipaddr('address')}}{% endif %}:{{apiserver.secure_port}} \
         --service-cluster-ip-range={{k8s_network.service_ip_cidr}} \
         --service-node-port-range=30000-32767 \
         --tls-cert-file={{apiserver_crt_filepath}} \
