@@ -4,7 +4,7 @@
   become: yes
   systemd:
     daemon_reload: yes
-  when: groups['etcd'] is defined and ansible_hostname in groups['etcd']
+  when: groups['etcd'] is defined and inventory_hostname in groups['etcd']
 
 - name: restart etcd
   become: yes
@@ -12,4 +12,4 @@
     name: etcd
     enabled: yes
     state: restarted
-  when: groups['etcd'] is defined and ansible_hostname in groups['etcd']
+  when: groups['etcd'] is defined and inventory_hostname in groups['etcd']

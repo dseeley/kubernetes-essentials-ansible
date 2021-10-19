@@ -19,7 +19,7 @@ vrrp_instance VI_1 {
 
   unicast_src_ip {{ ansible_default_ipv4.address }}
   unicast_peer {
-    {% for peer in apiserver_keepalived_peers -%}
+    {% for peer in apiserver_keepalived_peers | sort() -%}
     {{ peer }}
     {% endfor -%}
   }
@@ -40,7 +40,7 @@ virtual_server {{ apiserver.keepalived.vip_cidr | ipaddr('address') }} {{ apiser
   lvs_method DR
   protocol TCP
 
-  {% for real_server in apiserver_keepalived_real_servers -%}
+  {% for real_server in apiserver_keepalived_real_servers | sort() -%}
   real_server {{ real_server }} {{ apiserver.secure_port }} {
     weight 1
     TCP_CHECK {

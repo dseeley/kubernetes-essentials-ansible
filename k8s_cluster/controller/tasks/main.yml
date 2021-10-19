@@ -1,14 +1,15 @@
 ---
 
-- name: controller | Install apiserver load balancing solution
-  block:
-    - name: controller | Install keepalived for the apiserver LB/IPVS (private-cloud only)
-      include_tasks: apiserver-lb-ha-keepalived.yml
-      when: apiserver.lb_ha_mgr == "keepalived_ipvs"
+- name: controller | apt install
+  become: yes
+  apt:
+    name: ['python3-pip']
+    update_cache: True
 
-    - name: controller | Install GCE load balancer for apiserver (GCP)
-      include_tasks: apiserver-lb-gcp.yml
-      when: apiserver.lb_ha_mgr == "gce_internal"
+- name: controller | Install PIP modules needed for Ansible k8s
+  become: yes
+  pip:
+    name: ["openshift", "kubernetes-validate"]
 
 - name: controller | Download & install kubectl
   become: yes
@@ -88,16 +89,42 @@
   delay: 5
 
 
+- name: controller | Install apiserver load balancing solution
+  block:
+    - name: controller | Install keepalived for the apiserver LB/IPVS (private-cloud only)
+      include_tasks: apiserver-lb-ha-keepalived.yml
+      when: apiserver.lb_ha_mgr == "keepalived_ipvs"
+
+    - name: controller | Install AWS health-checking network load balancer for apiserver
+      include_tasks: apiserver-lb-awsnlb.yml
+      when: apiserver.lb_ha_mgr == "awsnlb"
+
+    - name: controller | Install GCE load balancer for apiserver (GCP)
+      include_tasks: apiserver-lb-gcp.yml
+      when: apiserver.lb_ha_mgr == "gce_internal"
+
+    - name: controller | Wait for apiserver to be running loadbalanced
+      uri:
+        url: "{% if apiserver.url is defined and apiserver.url != '' %}{{ apiserver.url }}{% elif apiserver.keepalived.vip_cidr is defined and apiserver.keepalived.vip_cidr != '' %}https://{{apiserver.keepalived.vip_cidr | ipaddr('address')}}{% endif %}:{{apiserver.secure_port}}/livez"
+        method: GET
+        status_code: 200
+        validate_certs: no
+      register: r__uri__clusterlivez
+      until: "r__uri__clusterlivez.status == 200"
+      retries: 60     #5 minutes
+      delay: 5
+
+
 - name: controller | Install/ configure admin
   include_tasks: config-admin.yml
 
 
 - name: controller | apply kubelet_rbac
-  k8s:
-    kubeconfig: "{{k8s_home_kube_dir}}/config"
-    resource_definition: "{{ item | from_yaml }}"
-    validate:
-      fail_on_error: yes
+  become: yes
+  shell: "cat <<EOF | kubectl apply -f -\n{{item}}\nEOF"
+#  k8s:
+#    kubeconfig: "{{k8s_home_kube_dir}}/config"
+#    resource_definition: "{{ item | from_yaml }}"
+#    validate: { fail_on_error: yes }
   loop: "{{ lookup('template', 'files/kubelet_rbac.yml').split('---') | select() }}"
-  delegate_to: localhost
   run_once: true

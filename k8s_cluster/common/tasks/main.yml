@@ -1,5 +1,22 @@
 ---
 
+- name: common | set resolv.conf dns search domain
+  block:
+    - name: common | set resolv.conf dns search domain
+      lineinfile:
+        path: /etc/systemd/resolved.conf
+        regexp: '^#?Domains=.*'
+        line: 'Domains={{search_domain | join(" ")}}'
+
+    - name: common | restart systemd-resolved
+      service:
+        name: systemd-resolved
+        state: restarted
+  become: yes
+  vars:
+    search_domain: ["default.svc.{{k8s_network.cluster_tld}}", "svc.{{k8s_network.cluster_tld}}", "{{k8s_network.cluster_tld}}", "{% if cluster_vars.dns_cloud_internal_domain is defined and cluster_vars.dns_cloud_internal_domain != '' -%}{{cluster_vars.dns_cloud_internal_domain}}{% endif -%}", "{% if cluster_vars.dns_user_domain is defined and cluster_vars.dns_user_domain != '' -%}{{cluster_vars.dns_user_domain}}{% endif -%}"]
+
+
 - name: common | write out hosts to /etc/hosts when no DNS in use
   become: yes
   blockinfile:
@@ -9,6 +26,7 @@
     create: yes
     marker: "# Ansible inventory hosts {mark}"
   when: (cluster_vars.dns_server is not defined  or  cluster_vars.dns_server == '')  or  (cluster_vars.dns_user_domain is not defined  or  cluster_vars.dns_user_domain == "")
+
 
 - name: "common | Enable bridge netfilter manually when a bridging CNI is used (https://github.com/kubernetes/kubernetes/issues/24018)"
   block:

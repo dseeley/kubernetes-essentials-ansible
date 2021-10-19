@@ -58,8 +58,9 @@
       [Service]
       Type=notify
       User={{ etcd.user }}
+      Environment="ETCD_UNSUPPORTED_ARCH=arm64"
       ExecStart={{ etcd.bin_dir }}/etcd \
-          -name {{ inventory_hostname }} \
+          -name {{ ansible_hostname }} \
           -cert-file {{ etcd.client_cert_file }} \
           -key-file {{ etcd.client_key_file }} \
           -peer-cert-file {{ etcd.peer_cert_file }} \
@@ -73,7 +74,7 @@
           -advertise-client-urls https://{{ ansible_default_ipv4.address }}:{{ etcd.client_port }} \
           -listen-client-urls https://0.0.0.0:{{ etcd.client_port }} \
           -initial-cluster-token etcd-{{cluster_name}} \
-          -initial-cluster {% for host in groups['etcd'] -%}{{ host }}=https://{{ hostvars[host]['ansible_default_ipv4']['address'] }}:{{ etcd.peer_port }}{% if not loop.last %},{% endif %}{% endfor %} \
+          -initial-cluster {% for host in groups['etcd'] | sort() -%}{{ host }}=https://{{ hostvars[host]['ansible_default_ipv4']['address'] }}:{{ etcd.peer_port }}{% if not loop.last %},{% endif %}{% endfor %} \
           -initial-cluster-state new \
           -data-dir {{ etcd.data_dir }} \
           -enable-v2

@@ -27,7 +27,7 @@
           {% if cluster_vars.dns_nameserver_zone is defined and cluster_vars.dns_nameserver_zone != '' -%}
             {% set _dummy = SANs.append('DNS:*.' + cluster_name + '.' + cluster_vars.dns_nameserver_zone) -%}
           {%- endif %}
-          {%- for host in groups['etcd'] -%}
+          {%- for host in groups['etcd'] | sort() -%}
             {% set _dummy = SANs.append('DNS:' + host) -%}
             {% set _dummy = SANs.append('IP:' + hostvars[host]['ansible_default_ipv4']['address']) -%}
           {%- endfor %}
@@ -80,4 +80,4 @@
         - { key: 'etcd-key.pem', val: "{{k8s_certs['etcd-key.pem']}}", mode: '0600', owner: "{{etcd.user}}", group: "{{etcd.user}}"}
         - { key: 'ca-crt.pem', val: "{{ssl_ca['ca-crt.pem']}}", mode: '0644', owner: "root", group: "root"}
   become: yes
-  when: groups['etcd'] is defined and ansible_hostname in groups['etcd']
+  when: groups['etcd'] is defined and inventory_hostname in groups['etcd']

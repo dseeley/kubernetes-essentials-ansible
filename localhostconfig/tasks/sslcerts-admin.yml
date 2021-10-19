@@ -10,7 +10,7 @@
     - name: sslcerts/admin/localhost | create kubernetes cert directory on localhost
       file: { path: "{{ k8s_home_kube_dir }}/{{ cluster_name }}", state: directory }
 
-    - name: "sslcerts/admin/localhost | Copy keys/certs to localhost: {{ k8s_home_kube_dir }}/{{ cluster_name }}"
+    - name: "sslcerts/admin/localhost | Copy keys/certs to localhost ({{ k8s_home_kube_dir }}/{{ cluster_name }})"
       copy:
         content: "{{ item.val }}"
         dest: "{{ k8s_home_kube_dir }}/{{ cluster_name }}/{{ item.key }}"

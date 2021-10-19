@@ -43,26 +43,27 @@
         force: yes
   run_once: yes
   delegate_to: localhost
-#  delegate_facts: yes
   when: (k8s_certs is not defined) or (k8s_certs['admin-crt.pem'] is not defined) or (k8s_certs['admin-key.pem'] is not defined) or (recreate_certs is defined and recreate_certs|bool)
 
 - name: "sslcerts/admin | Reload {{ playbook_certs_k8s_file }} - for all hosts"
   include_vars: "{{ playbook_certs_k8s_file }}"
 
-#- name: sslcerts/admin | Copy keys/certs to remotes
-#  block:
-#    - name: sslcerts/admin | create kubernetes cert directory on remotes
-#      file: path={{k8s_cert_dir}} state=directory
-#
-#    - name: sslcerts/admin | Copy keys/certs to remotes
-#      copy:
-#        content: "{{ item.val }}"
-#        dest: "{{ k8s_cert_dir }}/{{ item.key }}"
-#        mode:  "{{ item.mode }}"
-#      no_log: true
-#      with_items:
-#        - { key: 'admin-crt.pem', val: "{{k8s_certs['admin-crt.pem']}}", mode: '0644'}
-#        - { key: 'admin-key.pem', val: "{{k8s_certs['admin-key.pem']}}", mode: '0600'}
-#        - { key: 'ca-crt.pem', val: "{{ssl_ca['ca-crt.pem']}}", mode: '0644'}
-#  become: yes
-#  when: groups['controller'] is defined and ansible_hostname in groups['controller']
+
+- name: sslcerts/admin | Copy keys/certs to remotes
+  block:
+    - name: sslcerts/admin | create kubernetes cert directory on remotes
+      file: { path: "{{ k8s_home_kube_dir }}/{{ cluster_name }}", state: directory }
+
+    - name: "sslcerts/admin | Copy keys/certs to remotes ({{ k8s_home_kube_dir }}/{{ cluster_name }})"
+      become: yes
+      copy:
+        content: "{{ item.val }}"
+        dest: "{{ k8s_home_kube_dir }}/{{ cluster_name }}/{{ item.key }}"
+        mode:  "{{ item.mode }}"
+      no_log: true
+      with_items:
+        - { key: 'admin-crt.pem', val: "{{k8s_certs['admin-crt.pem']}}", mode: '0644'}
+        - { key: 'admin-key.pem', val: "{{k8s_certs['admin-key.pem']}}", mode: '0600'}
+        - { key: 'ca-crt.pem', val: "{{ssl_ca['ca-crt.pem']}}", mode: '0644'}
+  become: yes
+  when: groups['controller'] is defined and inventory_hostname in groups['controller']

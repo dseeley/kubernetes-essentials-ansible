@@ -161,7 +161,7 @@ spec:
       topologySpreadConstraints:
         - maxSkew: 1
           topologyKey: kubernetes.io/hostname
-          whenUnsatisfiable: DoNotSchedule
+          whenUnsatisfiable: ScheduleAnyway
           labelSelector:
             matchLabels:
               run: ingress-default-backend
@@ -172,7 +172,7 @@ spec:
 {#            - name: SRV_PORT#}
 {#              value: "8080"#}
         - name: ingress-default-backend
-          image: gcr.io/google_containers/defaultbackend:1.4
+          image: gcr.io/google_containers/defaultbackend-{{ 'amd64' if ansible_architecture == 'x86_64' else 'arm64' if ansible_architecture == 'aarch64' else ansible_architecture }}:1.5
           resources:
             limits:
               cpu: 10m
@@ -228,8 +228,8 @@ spec:
         - name: haproxy-ingress
           image: quay.io/jcmoraisjr/haproxy-ingress
           args:
-            - --default-backend-service=$(POD_NAMESPACE)/ingress-default-backend
-            - --configmap=$(POD_NAMESPACE)/haproxy-ingress
+            - --default-backend-service=\$(POD_NAMESPACE)/ingress-default-backend
+            - --configmap=\$(POD_NAMESPACE)/haproxy-ingress
             - --sort-backends
             - --allow-cross-namespace=true
 {#          ports:#}

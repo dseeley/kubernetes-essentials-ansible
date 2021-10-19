@@ -1,6 +1,6 @@
 ---
 
-- name: keepalived | Allow ip_forward (net.ipv4.ip_forward=1)
+- name: apiserver-lb-ha-keepalived | Allow ip_forward (net.ipv4.ip_forward=1)
   become: yes
   sysctl:
     name: net.ipv4.ip_forward
@@ -9,7 +9,7 @@
     state: present
     reload: yes
 
-- name: keepalived | Allow apps to bind on non-local addresses (net.ipv4.ip_nonlocal_bind=1)
+- name: apiserver-lb-ha-keepalived | Allow apps to bind on non-local addresses (net.ipv4.ip_nonlocal_bind=1)
   become: yes
   sysctl:
     name: net.ipv4.ip_nonlocal_bind
@@ -18,7 +18,7 @@
     state: present
     reload: yes
 
-- name: keepalived | Accept packets with local source addresses (net.ipv4.conf.eth0.accept_local=1)
+- name: apiserver-lb-ha-keepalived | Accept packets with local source addresses (net.ipv4.conf.eth0.accept_local=1)
   become: yes
   sysctl:
     name: "net.ipv4.conf.{{ansible_default_ipv4.interface}}.accept_local"
@@ -27,13 +27,13 @@
     state: present
     reload: yes
 
-#- name: keepalived | Add the br-netfilter module
+#- name: apiserver-lb-ha-keepalived | Add the br-netfilter module
 #  become: yes
 #  modprobe:
 #    name: br-netfilter
 #    state: present
 #
-#- name: keepalived | (net.bridge.bridge-nf-call-iptables=1)
+#- name: apiserver-lb-ha-keepalived | (net.bridge.bridge-nf-call-iptables=1)
 #  become: yes
 #  sysctl:
 #    name: net.bridge.bridge-nf-call-iptables
@@ -42,7 +42,7 @@
 #    state: present
 #    reload: yes
 
-- name: keepalived | Install keepalived package
+- name: apiserver-lb-ha-keepalived | Install keepalived package
   become: yes
   apt:
     update_cache: yes
@@ -50,7 +50,7 @@
     state: present
   notify: ["restart keepalived"]
 
-- name: keepalived | Configure keepalived
+- name: apiserver-lb-ha-keepalived | Configure keepalived
   become: yes
   template:
     src: keepalived-lb-apiserver.conf.j2
@@ -60,7 +60,7 @@
     apiserver_keepalived_peers: "{{ groups['controller'] | map('extract', hostvars, ['ansible_default_ipv4', 'address']) | difference(ansible_host) | sort }}"
   notify: ["restart keepalived"]
 
-- name: keepalived | Configure keepalived logging
+- name: apiserver-lb-ha-keepalived | Configure keepalived logging
   become: yes
   lineinfile:
     dest: "/etc/default/keepalived"

@@ -1,0 +1,121 @@
+---
+
+- assert: { that: "apiserver.url is defined and apiserver.url != ''", fail_msg: "Please define apiserver.url" }
+
+- name: apiserver-lb-awsalb | Create apiserver certificate/ key
+  include_tasks: sslcerts-apiserver.yml
+
+- name: apiserver-lb-awsalb | ec2_instance_info
+  ec2_instance_info:
+    filters:
+      "tag:hosttype": "controller"
+      "instance-state-name": ["running"]
+    aws_access_key: "{{ cluster_vars[buildenv].aws_access_key }}"
+    aws_secret_key: "{{ cluster_vars[buildenv].aws_secret_key }}"
+    region: "{{cluster_vars.region}}"
+  delegate_to: localhost
+  run_once: true
+  register: r__ec2_instance_info
+
+- name: apiserver-lb-awsalb | r__ec2_instance_info
+  debug: msg="{{r__ec2_instance_info}}"
+
+- name: apiserver-lb-awsalb | create elb_target_group
+  elb_target_group:
+    aws_access_key: "{{ cluster_vars[buildenv].aws_access_key }}"
+    aws_secret_key: "{{ cluster_vars[buildenv].aws_secret_key }}"
+    name: "{{cluster_name}}-apiserver"
+    protocol: https
+    port: "{{ apiserver.secure_port }}"
+    vpc_id: "{{ r__ec2_instance_info.instances | json_query(\"[].vpc_id | [0]\") }}"
+    health_check_protocol: https
+    health_check_path: /livez
+    successful_response_codes: "200"
+    targets: "{{ r__ec2_instance_info.instances | json_query(\"[].{Id: instance_id, Port: `\" + apiserver.secure_port|string + \"`}\") }}"
+    state: present
+  delegate_to: localhost
+  run_once: true
+  register: r__elb_target_group
+
+- name: apiserver-lb-awsalb | r__elb_target_group
+  debug: msg="{{r__elb_target_group}}"
+
+- name: create self-signed cert for the alb
+  block:
+#    - name: apiserver-lb-awsalb/crypto | Generate RSA private key
+#      community.crypto.openssl_privatekey_pipe:
+#        size: "4096"
+#      no_log: true
+#      delegate_to: localhost
+#      run_once: true
+#      register: r__openssl_privatekey_pipe
+#
+#    - name: apiserver-lb-awsalb/crypto | Generate  CSR
+#      community.crypto.openssl_csr_pipe:
+#        privatekey_content: "{{r__openssl_privatekey_pipe.privatekey}}"
+#        subject: { CN: "{{ apiserver.url | urlsplit('hostname')}}" }
+#      delegate_to: localhost
+#      run_once: true
+#      register: r__openssl_csr_pipe
+#
+#    - name: apiserver-lb-awsalb/crypto | Generate the self-signed CA certificate
+#      community.crypto.x509_certificate_pipe:
+#        provider: selfsigned
+#        privatekey_content: "{{r__openssl_privatekey_pipe.privatekey}}"
+#        csr_content: "{{r__openssl_csr_pipe.csr}}"
+#        selfsigned_not_after: "+7305d"       # Expiry in 20 years (incl leap years)
+#      delegate_to: localhost
+#      run_once: true
+#      register: r__x509_certificate_pipe
+    
+    - name: apiserver-lb-awsalb/crypto | upload a self-signed certificate
+      community.aws.aws_acm:
+        aws_access_key: "{{ cluster_vars[buildenv].aws_access_key }}"
+        aws_secret_key: "{{ cluster_vars[buildenv].aws_secret_key }}"
+        region: "{{cluster_vars.region}}"
+        certificate: "{{ k8s_certs['apiserver-crt.pem'] }}"
+        private_key: "{{ k8s_certs['apiserver-key.pem'] }}"
+        certificate_chain: "{{ ssl_ca['ca-crt.pem'] }}"
+        name_tag: "{{cluster_name}}-apiserver"
+      delegate_to: localhost
+      run_once: true
+      register: r__aws_acm
+
+- name: apiserver-lb-awsalb | Create an N/ALB and attach the listeners
+  elb_application_lb:
+    aws_access_key: "{{ cluster_vars[buildenv].aws_access_key }}"
+    aws_secret_key: "{{ cluster_vars[buildenv].aws_secret_key }}"
+    name: "{{cluster_name}}-apiserver"
+    security_groups: "{{ r__ec2_instance_info.instances | json_query(\"[].security_groups[].group_id\") }}"
+    subnets: "{{ r__ec2_instance_info.instances | json_query(\"[].subnet_id\") }}"
+    scheme: internal
+    listeners:
+      - Protocol: HTTPS
+        Port: "{{ apiserver.secure_port }}"
+        SslPolicy: ELBSecurityPolicy-2016-08
+        Certificates:
+          - CertificateArn: "{{ r__aws_acm.certificate.arn }}"
+        DefaultActions: [{ Type: forward, TargetGroupName: "{{r__elb_target_group.target_group_name}}" }]
+  delegate_to: localhost
+  run_once: true
+  register: r__elb_application_lb
+
+- name: apiserver-lb-awsalb | r__elb_application_lb
+  debug: msg="{{r__elb_application_lb}}"
+
+- name: apiserver-lb-awsalb | create CNAME
+  route53:
+    aws_access_key: "{{cluster_vars[buildenv].aws_access_key}}"
+    aws_secret_key: "{{cluster_vars[buildenv].aws_secret_key}}"
+    state: present
+    zone: "{{cluster_vars.dns_nameserver_zone}}"
+    record: "{{ apiserver.url | urlsplit('hostname') }}"
+    type: CNAME
+    ttl: 30
+    value: "{{ r__elb_application_lb.dns_name }}"
+    private_zone: "{{cluster_vars.route53_private_zone | default(true)}}"
+    overwrite: true
+  become: false
+  delegate_to: localhost
+  run_once: true
+  when: cluster_vars.dns_server == "route53"

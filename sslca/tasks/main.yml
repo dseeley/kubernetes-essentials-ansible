@@ -49,7 +49,7 @@
         force: yes
   run_once: yes
   delegate_to: localhost
-  when: (ssl_ca is not defined) or (recreate_certs is defined and recreate_certs|bool)
+  when: ssl_ca is not defined
 
 - name: "sslca | Reload {{ playbook_ca_yaml }} - for all hosts"
   include_vars: "{{ playbook_ca_yaml }}"

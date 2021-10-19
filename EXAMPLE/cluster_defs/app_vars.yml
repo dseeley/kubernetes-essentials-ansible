@@ -18,14 +18,14 @@ kube_dashboard_image: kubernetesui/dashboard:v2.3.1
 apiserver:
   url: "{% if cluster_vars.dns_server is defined and cluster_vars.dns_server != '' %}https://{{cluster_name}}-apiserver.{{cluster_vars.dns_nameserver_zone}}{% endif %}"
   secure_port: 443
-  lb_ha_mgr: ""         # The load-balancing/HA solution for apiserver (because of https://github.com/kubernetes/kubernetes/issues/18174).  e.g.: keepalived_ipvs, aws_dns_healthcheck, gcp_dns_healthcheck
+  lb_ha_mgr: ""         # The load-balancing/HA solution for apiserver (because of https://github.com/kubernetes/kubernetes/issues/18174).  e.g.: keepalived_ipvs, awsnlb, gcp_dns_healthcheck
   keepalived:
     vip_cidr: ""        # MUST be present for apiserver.lb_ha_mgr="keepalived_ipvs"; will be filled automatically for aws/gcp
 
 edge_ingress:
   node_role_name: "edge-ingress"
   controller: ""        # The Ingress Controller.  e.g.: haproxy-ingress
-  ha_mgr: ""            # The HA mechanism for node-edge (ingress) nodes.  e.g.: kube-keepalived-vip, aws_dns_healthcheck, gcp_dns_healthcheck
+  ha_mgr: ""            # The HA mechanism for node-edge (ingress) nodes.  e.g.: kube-keepalived-vip, awsnlb, gcp_dns_healthcheck
   keepalived:
     vip_cidr: ""        # MUST be present for edge_ingress.ha_mgr="kube-keepalived-vip"; will be filled automatically for aws/gcp
 

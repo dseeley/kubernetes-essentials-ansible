@@ -16,3 +16,8 @@
   apt:
     name: ['build-essential', 'kubectl', 'netcat', 'google-cloud-sdk']
     update_cache: True
+
+- name: Install PIP packages
+  become: yes
+  pip:
+    name: ["openshift", "kubernetes-validate"]

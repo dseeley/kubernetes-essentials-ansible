@@ -1,0 +1,44 @@
+---
+
+- block:
+    - name: apiserver-lb-awsnlb | Delete the N/ELB
+      elb_network_lb:
+        aws_access_key: "{{ cluster_vars[buildenv].aws_access_key }}"
+        aws_secret_key: "{{ cluster_vars[buildenv].aws_secret_key }}"
+        name: "{{cluster_name}}-apiserver"
+        state: absent
+
+    - name: apiserver-lb-awsnlb | Delete the elb_target_group
+      elb_target_group:
+        aws_access_key: "{{ cluster_vars[buildenv].aws_access_key }}"
+        aws_secret_key: "{{ cluster_vars[buildenv].aws_secret_key }}"
+        name: "{{cluster_name}}-apiserver"
+        state: absent
+
+    - block:
+        - name: clean/dns/route53 | Get CNAME records
+          route53:
+            aws_access_key: "{{cluster_vars[buildenv].aws_access_key}}"
+            aws_secret_key: "{{cluster_vars[buildenv].aws_secret_key}}"
+            state: "get"
+            zone: "{{cluster_vars.dns_nameserver_zone}}"
+            record: "{{ apiserver.url | urlsplit('hostname') }}"
+            type: "CNAME"
+            private_zone: "{{cluster_vars.route53_private_zone | default(true)}}"
+          register: r__route53_cname
+          ignore_errors: yes
+
+        - name: clean/dns/route53 | Delete CNAME records
+          route53:
+            aws_access_key: "{{cluster_vars[buildenv].aws_access_key}}"
+            aws_secret_key: "{{cluster_vars[buildenv].aws_secret_key}}"
+            state: "absent"
+            zone: "{{ r__route53_cname.set.zone }}"
+            record: "{{ r__route53_cname.set.record }}"
+            type: "{{ r__route53_cname.set.type }}"
+            ttl: "{{ r__route53_cname.set.ttl }}"
+            value: ["{{ r__route53_cname.set.value }}"]
+            private_zone: "{{cluster_vars.route53_private_zone | default(true)}}"
+          when: r__route53_cname.failed == false
+      when: cluster_vars.dns_server == "route53" and (use_new_route53 is not defined or use_new_route53|bool == false)
+  when: apiserver.lb_ha_mgr == "awsnlb"

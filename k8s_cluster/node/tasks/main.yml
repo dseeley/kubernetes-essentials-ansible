@@ -3,8 +3,8 @@
 - name: node/hostconfig
   block:
     - name: node/hostconfig | Disable swap for current session
-      command: swapoff -a
       become: yes
+      command: swapoff -a
 
     - name: node/hostconfig | Remove swapfile from /etc/fstab
       become: yes
@@ -12,40 +12,7 @@
         name: "{{ item }}"
         fstype: swap
         state: absent
-      with_items:
-        - swap
-        - none
-
-    - name: node/hostconfig | Revert hostname to AWS default - needed because kubelet needs to be able to resolve by hostname (and AWS internal DNS)
-      become: yes
-      hostname:
-        name: "ip-{{ansible_default_ipv4.address.split('.') | join('-')}}"
-      when: cluster_vars.type == "aws"
-
-    - name: node/hostconfig | set search domain
-      block:
-        - name: node/hostconfig | Add search domain to dhclient.conf (so resolv.conf survives reboot)
-          blockinfile:
-            dest: /etc/dhcp/dhclient.conf
-            block: |
-              interface "eth0" {
-                  append domain-search {{ '"' + search_domain|join('", "') + '"'}};
-              }
-            state: present
-            insertbefore: "BOF"
-            create: yes
-            backup: yes
-            marker: "# Ansible search domain {mark}"
-
-        - name: node/hostconfig | add dns search domain to resolv.conf
-          lineinfile:
-            path: /etc/resolv.conf
-            regexp: '^search.*'
-            line: 'search {{search_domain | join(" ")}}'
-      become: yes
-      vars:
-        search_domain: ["default.svc.{{k8s_network.cluster_tld}}", "svc.{{k8s_network.cluster_tld}}", "{{k8s_network.cluster_tld}}", "{% if cluster_vars.dns_cloud_internal_domain is defined and cluster_vars.dns_cloud_internal_domain != '' -%}{{cluster_vars.dns_cloud_internal_domain}}{% endif -%}", "{% if cluster_vars.dns_nameserver_zone is defined and cluster_vars.dns_nameserver_zone != '' -%}{{cluster_vars.dns_nameserver_zone}}{% endif -%}"]
-
+      with_items: ["swap", "none"]
 
 - name: node | Run cloud-specific VIP config (if defined)
   include_tasks: "{{item}}"
@@ -71,6 +38,8 @@
   meta: flush_handlers
 
 - name: node | Wait for nodes to be ready
+  become: yes
+  delegate_to: "{{groups['controller'][0]}}"
   uri:
     url: "{% if apiserver.url is defined and apiserver.url != '' %}{{ apiserver.url }}{% elif apiserver.keepalived.vip_cidr is defined and apiserver.keepalived.vip_cidr != '' %}https://{{apiserver.keepalived.vip_cidr | ipaddr('address')}}{% endif %}:{{apiserver.secure_port}}/api/v1/nodes/"
     method: GET
@@ -80,7 +49,6 @@
     client_cert: "{{k8s_home_kube_dir}}/{{cluster_name}}/admin-crt.pem"
     client_key: "{{k8s_home_kube_dir}}/{{cluster_name}}/admin-key.pem"
     return_content: yes
-  delegate_to: localhost
   run_once: yes
   register: r__clusternodes_result
   until: "r__clusternodes_result.status == 200  and  'json' in r__clusternodes_result  and  (not r__clusternodes_result.json['items'] | json_query(\"[].metadata.name\") | symmetric_difference(play_hosts))"
@@ -88,11 +56,16 @@
   delay: 5
 
 - name: node/worker | label all nodes with 'node' role
-  delegate_to: localhost
-  k8s:
-    kubeconfig: "{{k8s_home_kube_dir}}/config"
-    validate: { fail_on_error: yes }
+  become: yes
+  delegate_to: "{{groups['controller'][0]}}"
+  shell: "kubectl patch node {{ansible_hostname}} --patch '{{resource_definition| to_json}}'"
+#  k8s:
+#    kubeconfig: "{{k8s_home_kube_dir}}/config"
+#    validate: { fail_on_error: yes }
+#    resource_definition: "{{resource_definition}}"
+  vars:
     resource_definition:
+      apiVersion: v1
       kind: Node
       metadata:
         name: "{{ansible_hostname}}"
@@ -100,11 +73,16 @@
           node-role.kubernetes.io/node: 'true'
 
 - name: node/edge | label and taint node-edge nodes with 'edge_ingress.node_role_name' role
-  delegate_to: localhost
-  k8s:
-    kubeconfig: "{{k8s_home_kube_dir}}/config"
-    validate: { fail_on_error: yes }
+  become: yes
+  delegate_to: "{{groups['controller'][0]}}"
+  shell: "cat <<EOF | kubectl apply -f -\n{{resource_definition | to_yaml}}\nEOF"
+#  k8s:
+#    kubeconfig: "{{k8s_home_kube_dir}}/config"
+#    validate: { fail_on_error: yes }
+#    resource_definition: "{{resource_definition}}"
+  vars:
     resource_definition:
+      apiVersion: v1
       kind: Node
       metadata:
         name: "{{ansible_hostname}}"
@@ -114,28 +92,32 @@
           - key: "node-role.kubernetes.io/{{edge_ingress.node_role_name}}"
             value: "true"
             effect: NoExecute
-  when: groups['node-edge'] is defined and ansible_hostname in groups['node-edge']
+  when: groups['node-edge'] is defined and inventory_hostname in groups['node-edge']
 
 
 - name: node/edge/controller/haproxy-ingress | apply config
-  k8s:
-    kubeconfig: "{{k8s_home_kube_dir}}/config"
-    apply: yes
-    validate: { fail_on_error: yes }
-    resource_definition: "{{ item | from_yaml }}"
+  become: yes
+  delegate_to: "{{groups['controller'][0]}}"
+  shell: "cat <<EOF | kubectl apply -f -\n{{item}}\nEOF"
+#  k8s:
+#    kubeconfig: "{{k8s_home_kube_dir}}/config"
+#    apply: yes
+#    validate: { fail_on_error: yes }
+#    resource_definition: "{{ item | from_yaml }}"
   loop: "{{ lookup('template', 'templates/haproxy-ingress.yml.j2').split('---') | select() }}"
-  delegate_to: localhost
   run_once: true
   when: edge_ingress.controller == "haproxy-ingress"
 
 - name: node/edge/vip/keepalived-vip | apply config
-  k8s:
-    kubeconfig: "{{k8s_home_kube_dir}}/config"
-    apply: yes
-    validate: { fail_on_error: yes }
-    resource_definition: "{{ item | from_yaml }}"
+  become: yes
+  delegate_to: "{{groups['controller'][0]}}"
+  shell: "cat <<EOF | kubectl apply -f -\n{{item}}\nEOF"
+#  k8s:
+#    kubeconfig: "{{k8s_home_kube_dir}}/config"
+#    apply: yes
+#    validate: { fail_on_error: yes }
+#    resource_definition: "{{ item | from_yaml }}"
   loop: "{{ lookup('template', 'templates/kube-keepalived-vip.yaml.j2').split('---') | select() }}"
-  delegate_to: localhost
   run_once: true
   when: edge_ingress.ha_mgr == "kube-keepalived-vip"  and  edge_ingress.keepalived.vip_cidr is defined and edge_ingress.keepalived.vip_cidr != ""
 

@@ -1,0 +1,53 @@
+---
+
+cluster_vars:
+  dev:
+    aws_access_key: !vault |
+      $ANSIBLE_VAULT;1.1;AES256
+      7669080460651349243347331538721104778691266429457726036813912140404310
+    aws_secret_key: !vault |
+      $ANSIBLE_VAULT;1.1;AES256
+      7669080460651349243347331538721104778691266429457726036813912140404310
+    ssh_connection_cfg:
+      host: &host_ssh_connection_cfg
+        ansible_user: "ansible"
+        ansible_ssh_private_key_file: !vault |
+          $ANSIBLE_VAULT;1.1;AES256
+          7669080460651349243347331538721104778691266429457726036813912140404310
+      bastion:
+        ssh_args: '-o ProxyCommand="ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ./id_rsa_bastion -W %h:%p -q ansible@bastion-dev-sys-a0.aws-eu-west-1.infra.dev.intensible.com"'
+        ssh_priv_key: !vault |
+          $ANSIBLE_VAULT;1.1;AES256
+          7669080460651349243347331538721104778691266429457726036813912140404310
+    vpc_name: "{{buildenv}}"
+    vpc_subnet_name_prefix: "{{buildenv}}-private-{{region}}"
+    key_name: "aws_ansible__id_rsa"
+    termination_protection: "no"
+#    nsupdate_cfg: {server: "", key_name: "", key_secret: ""}      # If you're using bind9 (or other nsupdate-compatible 'dns_server')
+
+    hosttype_vars:
+      etcd:
+        auto_volumes: [ ]
+        flavor: t4g.nano
+        version: "{{sys_version | default('')}}"
+        vms_by_az: { a: 1, b: 1, c: 1 }
+
+      controller:
+        auto_volumes: [ ]
+        flavor: t4g.micro
+        version: "{{sys_version | default('')}}"
+        vms_by_az: { a: 1, b: 1, c: 1 }
+
+      node-edge:
+        auto_volumes: [ ]
+        flavor: t4g.nano
+        version: "{{sys_version | default('')}}"
+        vms_by_az: { a: 1, b: 1, c: 1 }
+
+      node-worker:
+        auto_volumes: [ ]
+        flavor: t3a.nano
+        version: "{{sys_version | default('')}}"
+        vms_by_az: { a: 1, b: 1, c: 1 }
+
+_host_ssh_connection_cfg: { <<: *host_ssh_connection_cfg }

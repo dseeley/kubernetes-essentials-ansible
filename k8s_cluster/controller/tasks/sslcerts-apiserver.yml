@@ -25,6 +25,9 @@
         SANs: |
           {% set SANs = [] -%}
           {% set _ = SANs.extend(['DNS:localhost','DNS:kubernetes','DNS:kubernetes.default','DNS:kubernetes.default.svc','DNS:kubernetes.default.svc.'+k8s_network.cluster_tld]) -%}
+          {% if apiserver.url is defined and apiserver.url != '' -%}
+            {% set _ = SANs.append('DNS:' + apiserver.url | urlsplit('hostname')) -%}
+          {%- endif %}
           {% set _ = SANs.append('IP:' + k8s_network.service_ip_cidr | ipv4('1') | ipv4('address') ) -%}
           {% if apiserver.keepalived.vip_cidr is defined and apiserver.keepalived.vip_cidr != '' -%}
             {% set _ = SANs.append('IP:' + apiserver.keepalived.vip_cidr | ipaddr('address')) -%}
@@ -32,7 +35,7 @@
           {% if cluster_vars.dns_nameserver_zone is defined and cluster_vars.dns_nameserver_zone != '' -%}
             {% set _dummy = SANs.append('DNS:*.' + cluster_name + '.' + cluster_vars.dns_nameserver_zone) -%}
           {%- endif %}
-          {%- for host in groups['controller'] -%}
+          {%- for host in groups['controller'] | sort() -%}
             {% set _dummy = SANs.append('DNS:' + host) -%}
             {% set _dummy = SANs.append('IP:' + hostvars[host]['ansible_default_ipv4']['address']) -%}
           {%- endfor %}

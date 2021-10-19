@@ -58,27 +58,6 @@ cluster_vars:
                 - <<: *controller_NET1
                   cloudinit_netplan:
                     ethernets: {eth0: {dhcp4: false, addresses: ["192.168.1.55/25"], gateway4: 192.168.1.1, nameservers: {addresses: ["192.168.1.2", "8.8.8.8", "8.8.4.4"], search: ["{{_dns_nameserver_zone}}"]}}}
-      node-worker:
-        auto_volumes: [ ]
-        flavor: { num_cpus: "2", memory_mb: "2048" }
-        version: "{{sys_version | default('')}}"
-        networks: [ &worker_NET1 { networkName: "VM Network", virtualDev: vmxnet3 } ]
-        vms_by_az:
-          a:
-            - networks:
-                - <<: *worker_NET1
-                  cloudinit_netplan:
-                    ethernets: {eth0: {dhcp4: false, addresses: ["192.168.1.56/25"], gateway4: 192.168.1.1, nameservers: {addresses: ["192.168.1.2", "8.8.8.8", "8.8.4.4"], search: ["{{_dns_nameserver_zone}}"]}}}
-          b:
-            - networks:
-                - <<: *worker_NET1
-                  cloudinit_netplan:
-                    ethernets: {eth0: {dhcp4: false, addresses: ["192.168.1.57/25"], gateway4: 192.168.1.1, nameservers: {addresses: ["192.168.1.2", "8.8.8.8", "8.8.4.4"], search: ["{{_dns_nameserver_zone}}"]}}}
-          c:
-            - networks:
-                - <<: *worker_NET1
-                  cloudinit_netplan:
-                    ethernets: {eth0: {dhcp4: false, addresses: ["192.168.1.58/25"], gateway4: 192.168.1.1, nameservers: {addresses: ["192.168.1.2", "8.8.8.8", "8.8.4.4"], search: ["{{_dns_nameserver_zone}}"]}}}
       node-edge:
         auto_volumes: [ ]
         flavor: { num_cpus: "2", memory_mb: "2048" }
@@ -100,5 +79,26 @@ cluster_vars:
                 - <<: *loadbalancer_NET1
                   cloudinit_netplan:
                     ethernets: {eth0: {dhcp4: false, addresses: ["192.168.1.61/25"], gateway4: 192.168.1.1, nameservers: {addresses: ["192.168.1.2", "8.8.8.8", "8.8.4.4"], search: ["{{_dns_nameserver_zone}}"]}}}
+      node-worker:
+        auto_volumes: [ ]
+        flavor: { num_cpus: "2", memory_mb: "2048" }
+        version: "{{sys_version | default('')}}"
+        networks: [ &worker_NET1 { networkName: "VM Network", virtualDev: vmxnet3 } ]
+        vms_by_az:
+          a:
+            - networks:
+                - <<: *worker_NET1
+                  cloudinit_netplan:
+                    ethernets: {eth0: {dhcp4: false, addresses: ["192.168.1.56/25"], gateway4: 192.168.1.1, nameservers: {addresses: ["192.168.1.2", "8.8.8.8", "8.8.4.4"], search: ["{{_dns_nameserver_zone}}"]}}}
+          b:
+            - networks:
+                - <<: *worker_NET1
+                  cloudinit_netplan:
+                    ethernets: {eth0: {dhcp4: false, addresses: ["192.168.1.57/25"], gateway4: 192.168.1.1, nameservers: {addresses: ["192.168.1.2", "8.8.8.8", "8.8.4.4"], search: ["{{_dns_nameserver_zone}}"]}}}
+          c:
+            - networks:
+                - <<: *worker_NET1
+                  cloudinit_netplan:
+                    ethernets: {eth0: {dhcp4: false, addresses: ["192.168.1.58/25"], gateway4: 192.168.1.1, nameservers: {addresses: ["192.168.1.2", "8.8.8.8", "8.8.4.4"], search: ["{{_dns_nameserver_zone}}"]}}}
 
 _host_ssh_connection_cfg: { <<: *host_ssh_connection_cfg }

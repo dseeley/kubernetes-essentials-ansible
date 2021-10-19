@@ -1,0 +1,61 @@
+---
+
+## NOTE: THIS DOES NOT WORK - because health-checks are not valid for rfc1918 IPs
+
+- assert: { that: "apiserver.url is defined and apiserver.url != ''", fail_msg: "Please define apiserver.url" }
+
+- block:
+    - name: apiserver-lb-awsdns | create/update health-check
+      route53_health_check:
+        aws_access_key: "{{cluster_vars[buildenv].aws_access_key}}"
+        aws_secret_key: "{{cluster_vars[buildenv].aws_secret_key}}"
+        state: present
+        ip_address: "{{ hostvars[item]['ansible_host'] }}"
+        port: "{{ apiserver.secure_port }}"
+        type: HTTPS
+        resource_path: "/livez"
+        request_interval: 10
+        failure_threshold: 2
+        validate_certs: no
+      register: r__route53_health_check
+      delegate_to: localhost
+      run_once: true
+      with_items: "{{ groups['controller'] | sort }}"
+
+    - name: apiserver-lb-awsdns | r__route53_health_check
+      debug: msg={{r__route53_health_check}}
+
+    - name: apiserver-lb-awsdns | create/update A records
+      route53:
+        aws_access_key: "{{cluster_vars[buildenv].aws_access_key}}"
+        aws_secret_key: "{{cluster_vars[buildenv].aws_secret_key}}"
+        state: present
+        zone: "{{cluster_vars.dns_nameserver_zone}}"
+        record: "{{ apiserver.url | urlsplit('hostname') }}"
+        type: A
+        ttl: 60
+        value: "{{ hostvars[item]['ansible_host'] }}"
+        private_zone: "{{cluster_vars.route53_private_zone | default(true)}}"
+        overwrite: true
+        health_check: "{{ results | json_query(\"[?item.ip_address == '\" + hostvars[item]['ansible_host'] + \"'].health_check.id\")  }}"
+        wait: yes
+      delegate_to: localhost
+      run_once: true
+      with_items: "{{ groups['controller'] | sort }}"
+      async: 7200
+      poll: 0
+      register: r__route53
+
+    - name: apiserver-lb-awsdns | Wait for records to be replicated to all Amazon Route 53 DNS servers
+      async_status:
+        jid: "{{ item.ansible_job_id }}"
+      register: route53_jobs
+      until: route53_jobs.finished
+      delay: 1
+      retries: 300
+      run_once: true
+      with_items: "{{r__route53.results}}"
+      delegate_to: localhost
+
+    - name: apiserver-lb-awsdns | route53_jobs
+      debug: msg={{route53_jobs}}

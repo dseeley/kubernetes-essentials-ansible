@@ -30,7 +30,7 @@
         --etcd-cafile={{etcd.client_trusted_ca_file}} \
         --etcd-certfile={{etcd.client_cert_file}} \
         --etcd-keyfile={{etcd.client_key_file}} \
-        --etcd-servers={% for node in groups['etcd'] %}https://{{hostvars[node]['ansible_default_ipv4']['address']}}:2379{% if not loop.last %},{% endif %}{% endfor %} \
+        --etcd-servers={% for node in groups['etcd'] | sort() %}https://{{hostvars[node]['ansible_host']}}:2379{% if not loop.last %},{% endif %}{% endfor %} \
         --event-ttl=1h \
         --kubelet-certificate-authority={{ca_crt_filepath}} \
         --kubelet-client-certificate={{apiserver_crt_filepath}} \

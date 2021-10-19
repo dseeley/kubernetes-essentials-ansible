@@ -1,40 +1,52 @@
 ---
 
 - name: addon/flannel | apply config
-  k8s:
-    kubeconfig: "{{k8s_home_kube_dir}}/config"
-    apply: yes
-    resource_definition: "{{ item | from_yaml }}"
-    validate: { fail_on_error: yes }
+  become: yes
+  shell: "cat <<EOF | kubectl apply -f -\n{{item}}\nEOF"
+#  k8s:
+#    kubeconfig: "{{k8s_home_kube_dir}}/config"
+#    apply: yes
+#    resource_definition: "{{ item | from_yaml }}"
+#    validate: { fail_on_error: yes }
   loop: "{{ lookup('template', 'templates/kube-flannel.yml.j2').split('---') | select() }}"
   when: flannel_version is defined  and  flannel_version != ""
+  run_once: yes
 
 - block:
     - name: addon/coredns | apply config
-      k8s:
-        kubeconfig: "{{k8s_home_kube_dir}}/config"
-        apply: yes
-        resource_definition: "{{ item | from_yaml }}"
-        validate: { fail_on_error: yes }
+      become: yes
+      shell: "cat <<EOF | kubectl apply -f -\n{{item}}\nEOF"
+#      k8s:
+#        kubeconfig: "{{k8s_home_kube_dir}}/config"
+#        apply: yes
+#        resource_definition: "{{ item | from_yaml }}"
+#        validate: { fail_on_error: yes }
       loop: "{{ lookup('template', 'templates/coredns.yml.j2').split('---') | select() }}"
+      run_once: yes
 
     - block:
         - name: addon/coredns | get existing pods
+          become: yes
+          delegate_to: "{{groups['controller'][0]}}"
           k8s_info:
             kubeconfig: "{{k8s_home_kube_dir}}/config"
             kind: Pod
             namespace: "kube-system"
             label_selectors: ["k8s-app = kube-dns"]
+          run_once: yes
           register: r__k8s_info_coredns
 
         - name: addon/coredns | delete pods if we're recreating the certs
+          become: yes
+          delegate_to: "{{groups['controller'][0]}}"
           k8s:
             kubeconfig: "{{k8s_home_kube_dir}}/config"
             kind: Pod
-            namespace: "{{ item | json_query(\"metadata.namespace\") }}"
-            name: "{{ item | json_query(\"metadata.name\") }}"
+            namespace: "{{ item.metadata.namespace }}"
+            name: "{{ item.metadata.name }}"
             state: absent
-          with_items: "{{r__k8s_info_coredns.resources[]}}"
+          run_once: yes
+          with_items: "{{r__k8s_info_coredns.resources}}"
       when: (recreate_certs is defined and recreate_certs|bool)
 
 
