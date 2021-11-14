@@ -24,6 +24,18 @@
       loop: "{{ lookup('template', 'templates/coredns.yml.j2').split('---') | select() }}"
       run_once: yes
 
+#    - name: addon/coredns | apply k8s_gateway config   ##Can't get this to work.  Instead, just define a wildcard DNS entry pointing to the external Lb
+#      become: yes
+#      shell: "cat <<EOF | kubectl apply -f -\n{{item}}\nEOF"
+##      k8s:
+##        kubeconfig: "{{k8s_home_kube_dir}}/config"
+##        apply: yes
+##        resource_definition: "{{ item | from_yaml }}"
+##        validate: { fail_on_error: yes }
+#      loop: "{{ lookup('template', 'templates/coredns__k8s_gateway.yml.j2').split('---') | select() }}"
+#      run_once: yes
+#      when: cluster_vars.dns_user_domain is defined  and  cluster_vars.dns_user_domain != ""
+
     - block:
         - name: addon/coredns | get existing pods
           become: yes

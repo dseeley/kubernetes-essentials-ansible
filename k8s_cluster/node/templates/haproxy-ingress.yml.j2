@@ -158,13 +158,22 @@ spec:
       labels:
         run: ingress-default-backend
     spec:
-      topologySpreadConstraints:
-        - maxSkew: 1
-          topologyKey: kubernetes.io/hostname
-          whenUnsatisfiable: ScheduleAnyway
-          labelSelector:
-            matchLabels:
-              run: ingress-default-backend
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - { 'key': 'run', 'operator': 'In', 'values': ['ingress-default-backend'] }
+              topologyKey: "topology.kubernetes.io/zone"
+{#      topologySpreadConstraints:#}
+{#        - maxSkew: 1#}
+{#          topologyKey: kubernetes.io/hostname#}
+{#          whenUnsatisfiable: ScheduleAnyway#}
+{#          labelSelector:#}
+{#            matchLabels:#}
+{#              run: ingress-default-backend#}
       containers:
 {#        - name: ingress-default-backend#}
 {#          image: dseeley/pyechoserver:latest#}

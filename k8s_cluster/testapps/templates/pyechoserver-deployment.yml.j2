@@ -1,0 +1,72 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pyechoserver-deployment
+  namespace: default
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: pyechoserver
+  template:
+    metadata:
+      labels:
+        app: pyechoserver
+    spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - { 'key': 'app', 'operator': 'In', 'values': ['pyechoserver'] }
+              topologyKey: "topology.kubernetes.io/zone"
+{#      topologySpreadConstraints:#}
+{#        - maxSkew: 1#}
+{#          topologyKey: kubernetes.io/hostname#}
+{#          whenUnsatisfiable: ScheduleAnyway#}
+{#          labelSelector:#}
+{#            matchLabels:#}
+{#              app: pyechoserver#}
+      containers:
+        - name: pyechoserver
+          image: dseeley/pyechoserver:latest
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pyechoserver
+  namespace: default
+  labels:
+    app: pyechoserver
+spec:
+  selector:
+    app: pyechoserver
+  ports:
+  - port: 8090
+    protocol: TCP
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: pyechoserver
+  namespace: default
+  annotations:
+    ingress.kubernetes.io/rewrite-target: /
+spec:
+  ingressClassName: haproxy
+  rules:
+    - http:
+        paths:
+          - path: /{% if cluster_vars.dns_user_domain is not defined  or  cluster_vars.dns_user_domain == '' %}pyechoserver{% endif %}{{''}}
+            pathType: Prefix
+            backend:
+              service:
+                name: pyechoserver
+                port:
+                  number: 8090
+      {% if cluster_vars.dns_user_domain is defined and cluster_vars.dns_user_domain != "" %}host: "pyechoserver.{{cluster_vars.dns_user_domain}}"{% endif %}

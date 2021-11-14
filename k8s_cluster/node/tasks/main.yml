@@ -71,6 +71,7 @@
         name: "{{ansible_hostname}}"
         labels:
           node-role.kubernetes.io/node: 'true'
+          topology.kubernetes.io/zone: "{{hostvars[ansible_hostname].regionzone}}"
 
 - name: node/edge | label and taint node-edge nodes with 'edge_ingress.node_role_name' role
   become: yes

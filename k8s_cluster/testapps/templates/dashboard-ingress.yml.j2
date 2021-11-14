@@ -8,20 +8,25 @@ metadata:
     haproxy-ingress.github.io/config-backend: |
       http-request redirect scheme https drop-query append-slash if { path -m str /dashboard }
     haproxy-ingress.github.io/rewrite-target: /
-    haproxy-ingress.github.io/ssl-passthrough: "true"
+    # haproxy-ingress.github.io/ssl-passthrough: "true"
     haproxy-ingress.github.io/backend-protocol: "HTTPS"
 spec:
   ingressClassName: haproxy
+{% if cluster_vars.dns_user_domain is defined and cluster_vars.dns_user_domain != "" %}
+  tls:
+  - hosts: [dashboard.{{cluster_vars.dns_user_domain}}]
+{% endif %}
   rules:
     - http:
         paths:
-          - path: /dashboard
+          - path: /{% if cluster_vars.dns_user_domain is not defined  or  cluster_vars.dns_user_domain == '' %}dashboard{% endif %}{{''}}
             pathType: Prefix
             backend:
               service:
                 name: kubernetes-dashboard
                 port:
                   number: 443
+      {% if cluster_vars.dns_user_domain is defined and cluster_vars.dns_user_domain != "" %}host: "dashboard.{{cluster_vars.dns_user_domain}}"{% endif %}
 
 ---
 apiVersion: v1

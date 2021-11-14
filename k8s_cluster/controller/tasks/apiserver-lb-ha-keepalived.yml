@@ -69,7 +69,10 @@
     backrefs: yes
   notify: ["restart keepalived"]
 
-- name: copy keepalived bypass_ipvs.sh
+- name: apiserver-lb-ha-keepalived | copy keepalived bypass_ipvs.sh
   become: yes
   copy: src=keepalived_bypass_ipvs.sh dest=/etc/keepalived/bypass_ipvs.sh owner=root group=root mode=0755
   notify: ["restart keepalived"]
+
+- name: apiserver-lb-ha-keepalived | flush handlers
+  meta: flush_handlers

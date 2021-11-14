@@ -7,8 +7,9 @@
   tasks:
     - { name: "Get dependent roles via ansible-galaxy", local_action: "command ansible-galaxy install -fr requirements.yml", tags: ["always"] }
 
+    - { include_role: { name: "clusterverse/_dependencies", apply: { tags: ["always"] } }, tags: ["always"], when: "clean is defined" }                       #So that k8s_nodes_clean has the cluster variables defined
+    - { include_role: { name: "kubernetes/k8s_cluster/clean", apply: { tags: ["clusterverse_clean"] } }, tags: ["clusterverse_clean"], when: "clean is defined" }
     - { include_role: { name: "clusterverse/clean", apply: { tags: ["clusterverse_clean"] } }, tags: ["clusterverse_clean"], when: "clean is defined" }
-    - { include_role: { name: "kubernetes/k8s_cluster/clean", apply: { tags: ["k8s_nodes_clean"] } }, tags: ["k8s_nodes_clean"], when: "clean is defined" }
     - { include_role: { name: "clusterverse/create", apply: { tags: ["clusterverse_create"] } }, tags: ["clusterverse_create"] }
     - { include_role: { name: "clusterverse/dynamic_inventory", apply: { tags: ["clusterverse_dynamic_inventory"] } }, tags: ["clusterverse_dynamic_inventory"] }
     - { name: "clusterverse | Copy ansible_ssh_private_key_file", local_action: "copy content={{cluster_vars[buildenv].ssh_connection_cfg.host.ansible_ssh_private_key_file}} dest='id_rsa_ansible_ssh_private_key_file' mode='0600'", when: "cluster_vars[buildenv].ssh_connection_cfg.host.ansible_ssh_private_key_file is defined", no_log: yes, tags: ["always"] }
@@ -31,7 +32,7 @@
     - { include_role: { name: "clusterverse/_dependencies", apply: { tags: ["always"] } }, tags: ["always"], when: "'clusterverse_config' not in ansible_run_tags" }      # If we --skip-tags=clusterverse_config, this will ensure the variables from /cluster_defs are loaded.
     - { include_role: { name: "clusterverse/cluster_hosts", apply: { tags: ["always"] } }, tags: ["always"], when: "'clusterverse_create' not in ansible_run_tags" }      # If we --skip-tags=clusterverse_create, this will ensure cluster_suffix is defined.
     - { include_role: { name: "kubernetes/sslca", apply: { tags: ["kubernetes_sslca"] } }, tags: ["kubernetes_sslca"] }
-    - { include_vars: "{{ item }}", with_first_found: [{ files: ["{{playbook_certs_k8s_file}}"], skip: true }] }
+    - { include_vars: "{{ item }}", with_first_found: [{ files: ["{{playbook_certs_k8s_file}}"], skip: true }], tags: ["always"] }
 
 - name: Kubernetes | localhostconfig
   hosts: localhost
@@ -60,8 +61,7 @@
   tasks: [{ include_role: { name: "kubernetes/k8s_cluster/node", apply: { tags: ["k8s_cluster_nodes"] } }, tags: ["k8s_cluster_nodes"] }]
 
 - name: Kubernetes | Install the k8 addons and, optionally, test applications
-  hosts: localhost
-  connection: local
+  hosts: controller
   tasks:
     - { include_role: { name: "kubernetes/k8s_cluster/addon", apply: { tags: ["k8s_cluster_controller_addon"] } }, tags: ["k8s_cluster_controller_addon"] }
     - { include_role: { name: "kubernetes/k8s_cluster/testapps", apply: { tags: ["k8s_cluster_testapps"] } }, tags: ["k8s_cluster_testapps"], when: "testapps is defined" }

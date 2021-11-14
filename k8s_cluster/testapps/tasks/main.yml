@@ -11,7 +11,7 @@
 #        apply: yes
 #        resource_definition: "{{ item | from_yaml }}"
 #        validate: { fail_on_error: yes }
-      loop: "{{ lookup('template', 'dashboard.yml').split('---') | select() }}"
+      loop: "{{ lookup('template', 'dashboard.yml.j2').split('---') | select() }}"
       run_once: yes
 
     - name: test/dashboard | apply ingress config
@@ -23,7 +23,7 @@
 #        apply: yes
 #        validate: { fail_on_error: yes }
 #        resource_definition: "{{ item | from_yaml }}"
-      loop: "{{ lookup('template', 'dashboard-ingress.yml').split('---') | select() }}"
+      loop: "{{ lookup('template', 'dashboard-ingress.yml.j2').split('---') | select() }}"
       run_once: yes
 
     - block:
@@ -52,7 +52,7 @@
       when: (recreate_certs is defined and recreate_certs|bool)
 
 
-- name: test/nginx-deployment.yml | apply config
+- name: test/nginx-deployment | apply config
   become: yes
   delegate_to: "{{groups['controller'][0]}}"
   shell: "cat <<EOF | kubectl apply -f -\n{{item}}\nEOF"
@@ -62,10 +62,12 @@
 #    validate: { fail_on_error: yes }
 #    resource_definition: "{{ item | from_yaml }}"
   run_once: yes
-  loop: "{{ lookup('template', 'nginx-deployment.yml').split('---') | select() }}"
+  loop: "{{ lookup('template', 'nginx-deployment.yml.j2').split('---') | select() }}"
+  vars:
+    custom_html: "{{inventory_hostname}}"
 
 
-- name: test/tcpecho-deployment.yml | apply config
+- name: test/pyechoserver-deployment | apply config
   become: yes
   delegate_to: "{{groups['controller'][0]}}"
   shell: "cat <<EOF | kubectl apply -f -\n{{item}}\nEOF"
@@ -75,4 +77,17 @@
 #    validate: { fail_on_error: yes }
 #    resource_definition: "{{ item | from_yaml }}"
   run_once: yes
-  loop: "{{ lookup('template', 'tcpecho-deployment.yml').split('---') | select() }}"
+  loop: "{{ lookup('template', 'pyechoserver-deployment.yml.j2').split('---') | select() }}"
+
+
+- name: test/tcpecho-deployment | apply config
+  become: yes
+  delegate_to: "{{groups['controller'][0]}}"
+  shell: "cat <<EOF | kubectl apply -f -\n{{item}}\nEOF"
+#  k8s:
+#    kubeconfig: "{{k8s_home_kube_dir}}/config"
+#    apply: yes
+#    validate: { fail_on_error: yes }
+#    resource_definition: "{{ item | from_yaml }}"
+  run_once: yes
+  loop: "{{ lookup('template', 'tcpecho-deployment.yml.j2').split('---') | select() }}"

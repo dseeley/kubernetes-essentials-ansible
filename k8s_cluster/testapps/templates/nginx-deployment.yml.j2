@@ -14,17 +14,26 @@ spec:
       labels:
         app: nginx-test
     spec:
-      topologySpreadConstraints:
-        - maxSkew: 1
-          topologyKey: kubernetes.io/hostname
-          whenUnsatisfiable: ScheduleAnyway
-          labelSelector:
-            matchLabels:
-              app: nginx-test
+{#      topologySpreadConstraints:#}
+{#        - maxSkew: 1#}
+{#          topologyKey: kubernetes.io/hostname#}
+{#          whenUnsatisfiable: ScheduleAnyway#}
+{#          labelSelector:#}
+{#            matchLabels:#}
+{#              app: nginx-test#}
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - { 'key': 'app', 'operator': 'In', 'values': ['nginx-test'] }
+              topologyKey: "topology.kubernetes.io/zone"
       initContainers:
         - name: configworkdir
           image: busybox
-          command: [ "sh", "-c", 'echo "<h1>$(hostname)</h1>" > /workdir/index.html' ]
+          command: [ "sh", "-c", 'echo "<h1>\$(hostname)</h1>" > /workdir/index.html' ]
           volumeMounts:
             - name: workdir
               mountPath: "/workdir"
@@ -65,13 +74,13 @@ metadata:
 spec:
   ingressClassName: haproxy
   rules:
-#    - host: "nginx-test.{{cluster_vars.dns_user_domain}}"
     - http:
         paths:
-          - path: /nginx
+          - path: /{% if cluster_vars.dns_user_domain is not defined  or  cluster_vars.dns_user_domain == '' %}nginx{% endif %}{{''}}
             pathType: Prefix
             backend:
               service:
                 name: nginx-test
                 port:
                   number: 80
+      {% if cluster_vars.dns_user_domain is defined and cluster_vars.dns_user_domain != "" %}host: "nginx-test.{{cluster_vars.dns_user_domain}}"{% endif %}

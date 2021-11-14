@@ -68,6 +68,9 @@ data:
           pods insecure
           fallthrough in-addr.arpa ip6.arpa
         }
+{#{% if cluster_vars.dns_user_domain is defined and cluster_vars.dns_user_domain != "" %}#}
+{#        k8s_external {{ cluster_vars.dns_user_domain }}#}
+{#{% endif %}#}
         forward . 8.8.8.8
         prometheus :9153
         cache 30
@@ -101,6 +104,13 @@ spec:
       labels:
         k8s-app: kube-dns
     spec:
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              k8s-app: kube-dns
       priorityClassName: system-cluster-critical
       serviceAccountName: coredns
       tolerations:
@@ -180,6 +190,9 @@ spec:
   selector:
     k8s-app: kube-dns
   clusterIP: {{ k8s_network.dns_ip }}
+{#{% if edge_ingress.keepalived.vip_cidr is defined and edge_ingress.keepalived.vip_cidr != '' %}#}
+{#  externalIPs: [{{edge_ingress.keepalived.vip_cidr | ipaddr('address')}}]#}
+{#{% endif %}#}
   ports:
   - name: dns
     port: 53
