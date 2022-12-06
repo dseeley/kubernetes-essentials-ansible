@@ -15,19 +15,18 @@ cluster_vars:
   image: "{{_ubuntu2204image}}"
   dns_cloud_internal_domain: ""                               # The cloud-internal zone as defined by the cloud provider (e.g. GCP, AWS)
   dns_nameserver_zone: &dns_nameserver_zone "chezdj.com"      # The zone that dns_server will operate on.  gcloud dns needs a trailing '.'.  Leave blank if no external DNS (use IPs only)
-  dns_user_domain: "{%- if _dns_nameserver_zone -%}k8s.{{buildenv}}.{{_dns_nameserver_zone}}{%- endif -%}"         # A user-defined _domain_ part of the FDQN, (if more prefixes are required before the dns_nameserver_zone)
+  dns_user_domain: "{%- if _dns_nameserver_zone -%}k8s.{{_dns_nameserver_zone}}{%- endif -%}"         # A user-defined _domain_ part of the FDQN, (if more prefixes are required before the dns_nameserver_zone)
   dns_server: ""                                              # Specify DNS server. nsupdate, route53 or clouddns.  If empty string is specified, no DNS will be added.
   inventory_ip: "private"                                     # 'public' or 'private', (private in case we're operating in a private LAN).  If public, 'assign_public_ip' must be 'static' or 'dynamic'
   custom_tagslabels:
     inv_cost_centre: "0000000000"
-  esxi:
-    esxi_ip: "192.168.1.30"
-    username: "root"
-    password: !vault |
+  libvirt:
+    hypervisor: "192.168.1.3"
+    username: "svc"
+    private_key: !vault |
       $ANSIBLE_VAULT;1.1;AES256
       7669080460651349243347331538721104778691266429457726036813912140404310
-    datastore: "vdisks"
-    hardware_version: "19"
+    storage_pool: "/media/vdisks"
     delete_cloudinit: yes
     cloudinit_userdata:
       users:

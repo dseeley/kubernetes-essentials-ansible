@@ -1,10 +1,12 @@
 ---
 
 merge_dict_vars_list:
-  - "./cluster_defs/cluster_vars.yml"
-  - "./cluster_defs/app_vars.yml"
+  - "./cluster_defs/"
   - "./cluster_defs/{{ cloud_type }}/"
-  - "./cluster_defs/{{ cloud_type }}/{{ clusterid }}/"
-  - "./cluster_defs/{{ cloud_type }}/{{ clusterid }}/{{ region }}/"
-  - "./cluster_defs/{{ cloud_type }}/{{ clusterid }}/{{ region }}/{{ buildenv }}/"
-  - "./cluster_defs/{{ cloud_type }}/{{ clusterid }}/{{ region }}/{{ buildenv }}/_ssl/ca.yml"   #Do NOT include the other certs here, they are cluster_suffix specific
+  - "./cluster_defs/{{ cloud_type }}/{{ clusterid | default() }}/"
+  - "./cluster_defs/{{ cloud_type }}/{{ clusterid | default() }}/{{ region }}/"
+  - "./cluster_defs/{{ cloud_type }}/{{ clusterid | default() }}/{{ region }}/{{ buildenv }}/"
+  - "./cluster_defs/{{ cloud_type }}/{{ clusterid | default() }}/{{ region }}/{{ buildenv }}/_ssl/ca.yml"   #Do NOT include the other certs here, they are cluster_suffix specific
+  - "./cluster_defs/{{ cloud_type }}/{{ buildenv }}/"
+  - "./cluster_defs/{{ cloud_type }}/{{ region }}/"
+  - "./cluster_defs/{{ cloud_type }}/{{ region }}/{{ buildenv }}/"

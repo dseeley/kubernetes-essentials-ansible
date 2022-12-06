@@ -14,7 +14,7 @@
 - name: controller | Download & install kubectl
   become: yes
   get_url:
-    url: "https://storage.googleapis.com/kubernetes-release/release/{{ k8s_version }}/bin/linux/{{ 'amd64' if ansible_architecture == 'x86_64' else 'arm64' if ansible_architecture == 'aarch64' else ansible_architecture }}/kubectl"
+    url: "{{k8s_artifact_location}}/kubectl"
     dest: "/usr/local/bin/kubectl"
     mode: 0755
 
@@ -25,7 +25,7 @@
 - name: controller | Download & install binaries
   become: yes
   get_url:
-    url: "https://storage.googleapis.com/kubernetes-release/release/{{ k8s_version }}/bin/linux/{{ 'amd64' if ansible_architecture == 'x86_64' else 'arm64' if ansible_architecture == 'aarch64' else ansible_architecture }}/{{ item }}"
+    url: "{{k8s_artifact_location}}/{{ item }}"
     dest: "{{k8s_bin_dir}}/{{ item }}"
     mode: 0755
   with_items:

@@ -5,6 +5,20 @@ roles:
     src: https://github.com/dseeley/clusterverse
     version: master
 
-  - name: kubernetes
-    src: https://github.com/dseeley/kubernetes-essentials-ansible
-    version: master
+#  - name: kubernetes
+#    src: https://github.com/dseeley/kubernetes-essentials-ansible
+#    version: master
+
+collections:
+  - name: dseeley.inventory_lookup
+    source: https://galaxy.ansible.com
+
+  - name: https://github.com/dseeley/community.libvirt.git
+    type: git
+    version: develop
+
+  - name: dseeley.ansible_vault_pipe
+    source: https://galaxy.ansible.com
+
+  - name: dseeley.esxifree_guest
+    source: https://galaxy.ansible.com

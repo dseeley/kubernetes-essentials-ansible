@@ -18,7 +18,7 @@
       [Service]
       ExecStart={{k8s_bin_dir}}/kube-apiserver \
         --allow-privileged=true \
-        --apiserver-count=3 \
+        --apiserver-count={{ groups['controller'] | length }} \
         --audit-log-maxage=30 \
         --audit-log-maxbackup=3 \
         --audit-log-maxsize=100 \
@@ -52,4 +52,4 @@
       WantedBy=multi-user.target
     dest: "/etc/systemd/system/kube-apiserver.service"
     force: yes
-  notify: ["reload systemd", "restart kube-apiserver"]
+  notify: ["reload controller systemd", "restart kube-apiserver"]

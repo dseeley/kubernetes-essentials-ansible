@@ -65,4 +65,4 @@
       WantedBy=multi-user.target
     dest: "/etc/systemd/system/kube-controller-manager.service"
     force: yes
-  notify: ["reload systemd", "restart kube-controller-manager"]
+  notify: ["reload controller systemd", "restart kube-controller-manager"]

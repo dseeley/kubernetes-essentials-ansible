@@ -76,8 +76,7 @@
           -initial-cluster-token etcd-{{cluster_name}} \
           -initial-cluster {% for host in groups['etcd'] | sort() -%}{{ host }}=https://{{ hostvars[host]['ansible_default_ipv4']['address'] }}:{{ etcd.peer_port }}{% if not loop.last %},{% endif %}{% endfor %} \
           -initial-cluster-state new \
-          -data-dir {{ etcd.data_dir }} \
-          -enable-v2
+          -data-dir {{ etcd.data_dir }}
       Restart=on-failure
       RestartSec=5
 
@@ -85,4 +84,4 @@
       WantedBy=multi-user.target
     dest: "/etc/systemd/system/etcd.service"
     force: yes
-  notify: ["reload systemd", "restart etcd"]
+  notify: ["reload etcd systemd", "restart etcd"]

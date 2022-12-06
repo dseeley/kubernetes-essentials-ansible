@@ -1,6 +1,6 @@
 ---
 
-- name: reload systemd
+- name: reload node systemd
   become: yes
   systemd:
     daemon_reload: yes

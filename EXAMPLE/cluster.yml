@@ -2,14 +2,16 @@
 
 - name: clusterverse | Deploy the cluster
   hosts: localhost
-  connection: local
   gather_facts: no
   tasks:
-    - { name: "Get dependent roles via ansible-galaxy", local_action: "command ansible-galaxy install -fr requirements.yml", tags: ["always"] }
+    - { name: "Get dependent roles via ansible-galaxy", local_action: "command ansible-galaxy role install --ignore-errors -fr requirements.yml", tags: ["always"] }
 
-    - { include_role: { name: "clusterverse/_dependencies", apply: { tags: ["always"] } }, tags: ["always"], when: "clean is defined" }                       #So that k8s_nodes_clean has the cluster variables defined
-    - { include_role: { name: "kubernetes/k8s_cluster/clean", apply: { tags: ["clusterverse_clean"] } }, tags: ["clusterverse_clean"], when: "clean is defined" }
-    - { include_role: { name: "clusterverse/clean", apply: { tags: ["clusterverse_clean"] } }, tags: ["clusterverse_clean"], when: "clean is defined" }
+    - block:
+        - { include_role: { name: "clusterverse/_dependencies", apply: {tags: ["always"]} }, tags: ["always"] }
+        - { include_role: { name: "kubernetes/k8s_cluster/clean", apply: { tags: ["always"]} }, tags: ["always"] }
+        - { include_role: { name: "clusterverse/clean", apply: {tags: ["clusterverse_clean"]} }, tags: ["clusterverse_clean"] }
+      when: "clean is defined"
+
     - { include_role: { name: "clusterverse/create", apply: { tags: ["clusterverse_create"] } }, tags: ["clusterverse_create"] }
     - { include_role: { name: "clusterverse/dynamic_inventory", apply: { tags: ["clusterverse_dynamic_inventory"] } }, tags: ["clusterverse_dynamic_inventory"] }
     - { name: "clusterverse | Copy ansible_ssh_private_key_file", local_action: "copy content={{cluster_vars[buildenv].ssh_connection_cfg.host.ansible_ssh_private_key_file}} dest='id_rsa_ansible_ssh_private_key_file' mode='0600'", when: "cluster_vars[buildenv].ssh_connection_cfg.host.ansible_ssh_private_key_file is defined", no_log: yes, tags: ["always"] }
@@ -18,20 +20,34 @@
 - name: clusterverse | Wait for SSH connections
   hosts: all
   gather_facts: no
-  tasks: [{ wait_for_connection: "", tags: ["always"] }]
+  tasks: [ {wait_for_connection: "", tags: ["always"] } ]
 
 - name: clusterverse | Configure the cluster
   hosts: all:!not_target_hosts
-  tasks: [{ include_role: { name: "clusterverse/config", apply: { tags: ["clusterverse_config"] } }, tags: ["clusterverse_config"] }]
+  tasks: [ { include_role: { name: "clusterverse/config", apply: { tags: ["clusterverse_config"]} }, tags: ["clusterverse_config"] } ]
 
 
 ###### Kubernetes roles
-- name: Kubernetes | sslca
+- name: Kubernetes | load clusterverse deps if not included already
   hosts: all:localhost
   tasks:
     - { include_role: { name: "clusterverse/_dependencies", apply: { tags: ["always"] } }, tags: ["always"], when: "'clusterverse_config' not in ansible_run_tags" }      # If we --skip-tags=clusterverse_config, this will ensure the variables from /cluster_defs are loaded.
     - { include_role: { name: "clusterverse/cluster_hosts", apply: { tags: ["always"] } }, tags: ["always"], when: "'clusterverse_create' not in ansible_run_tags" }      # If we --skip-tags=clusterverse_create, this will ensure cluster_suffix is defined.
-    - { include_role: { name: "kubernetes/sslca", apply: { tags: ["kubernetes_sslca"] } }, tags: ["kubernetes_sslca"] }
+
+- name: Kubernetes | ssl_ownca
+  hosts: all:localhost
+  tasks:
+    - assert: { that: "'dseeley.ansible_vault_pipe' in galaxy_collections.keys()", fail_msg: "Please ensure the dseeley.ansible_vault_pipe collection is installed:  ansible-galaxy collection install dseeley.ansible_vault_pipe (or ansible-galaxy collection install --ignore-errors -fr requirements.yml)" }
+      vars:
+        galaxy_collections: |-
+          {% set res = {} -%}
+          {% set _galaxy_lookup = lookup('pipe', 'ansible-galaxy collection list', errors='ignore') -%}     {# Note: We cannot use '--format json' in 'ansible-galaxy collection list' command, as it is not present in 2.10.x  #}
+          {%- for sub in (_galaxy_lookup | ternary(_galaxy_lookup, '') | trim).split('\n') | map('trim') | map('regex_replace', '\\s+', ' ') | select | list -%}
+            {% set _ = res.update({sub.split(' ')[0]: {'version': sub.split(' ')[1]|default('')}}) -%}
+          {%- endfor -%}
+          {{ res }}
+
+    - { include_role: { name: "kubernetes/ssl_ownca", apply: { tags: ["kubernetes_ssl_ownca"] } }, tags: ["kubernetes_ssl_ownca"] }
     - { include_vars: "{{ item }}", with_first_found: [{ files: ["{{playbook_certs_k8s_file}}"], skip: true }], tags: ["always"] }
 
 - name: Kubernetes | localhostconfig
@@ -70,5 +86,4 @@
 
 - name: clusterverse | Perform cluster readiness operations
   hosts: localhost
-  connection: local
-  tasks: [{ include_role: { name: "clusterverse/readiness", apply: { tags: ["clusterverse_readiness"] } }, tags: ["clusterverse_readiness"] }]
+  tasks: [ { include_role: { name: "clusterverse/readiness", apply: { tags: ["clusterverse_readiness"]} }, tags: ["clusterverse_readiness"] } ]

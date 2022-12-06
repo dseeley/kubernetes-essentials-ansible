@@ -14,6 +14,13 @@
         state: absent
       with_items: ["swap", "none"]
 
+    - name: node/hostconfig | apt install
+      become: yes
+      apt:
+        name: ['unzip']  	# 'unzip'  needed for ansible.builtin.unarchive
+        update_cache: True
+
+
 - name: node | Run cloud-specific VIP config (if defined)
   include_tasks: "{{item}}"
   with_first_found: [{ files: ["vips_{{cluster_vars.type}}.yml"], skip: true }]

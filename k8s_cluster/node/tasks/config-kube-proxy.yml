@@ -10,7 +10,7 @@
 - name: node/config/kube-proxy | Download & install
   become: yes
   get_url:
-    url: "https://storage.googleapis.com/kubernetes-release/release/{{ k8s_version }}/bin/linux/{{ 'amd64' if ansible_architecture == 'x86_64' else 'arm64' if ansible_architecture == 'aarch64' else ansible_architecture }}/kube-proxy"
+    url: "{{k8s_artifact_location}}/kube-proxy"
     dest: "{{k8s_bin_dir}}/kube-proxy"
     mode: 0755
   notify: ["restart kube-proxy"]
@@ -55,8 +55,6 @@
       clientConnection:
         kubeconfig: "{{ k8s_config_dir }}/kube-proxy/kubeconfig"
       mode: "iptables"
-      iptables:
-        masqueradeAll: true
       clusterCIDR: "{{k8s_network.cluster_cidr}}"
     dest: "{{ k8s_config_dir }}/kube-proxy/kube-proxy-config.yaml"
     force: yes
@@ -74,9 +72,6 @@
       ExecStart={{k8s_bin_dir}}/kube-proxy --config={{ k8s_config_dir }}/kube-proxy/kube-proxy-config.yaml
       Restart=on-failure
       RestartSec=5
-
-      [Install]
-      WantedBy=multi-user.target
     dest: "/etc/systemd/system/kube-proxy.service"
     force: yes
-  notify: ["reload systemd", "restart kube-proxy"]
+  notify: ["reload node systemd", "restart kube-proxy"]

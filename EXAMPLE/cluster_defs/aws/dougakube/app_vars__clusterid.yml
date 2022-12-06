@@ -1,8 +1,0 @@
----
-
-apiserver:
-  lb_ha_mgr: "awsnlb"
-
-edge_ingress:
-  controller: "haproxy-ingress"
-  ha_mgr: "awsnlb"

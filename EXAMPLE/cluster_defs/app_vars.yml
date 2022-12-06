@@ -1,19 +1,29 @@
 ---
 
-k8s_version: v1.21.0
+k8s_version: 1.24.3
+k8s_artifact_location: "https://storage.googleapis.com/kubernetes-release/release/v{{k8s_version}}/bin/linux/{{'amd64' if ansible_architecture == 'x86_64' else 'arm64' if ansible_architecture == 'aarch64' else ansible_architecture}}"
+
+containerd_version: 1.6.10
+containerd_artifact_location: "https://github.com/containerd/containerd/releases/download/v{{containerd_version}}/containerd-{{containerd_version}}-linux-{{'amd64' if ansible_architecture == 'x86_64' else 'arm64' if ansible_architecture == 'aarch64' else ansible_architecture}}.tar.gz"
+
+runc_version: 1.1.4
+runc_artifact_location: "https://github.com/opencontainers/runc/releases/download/v{{runc_version}}/runc.{{'amd64' if ansible_architecture == 'x86_64' else 'arm64' if ansible_architecture == 'aarch64' else ansible_architecture}}"
+
+cni_plugin_version: 1.1.1
+cni_plugin_artifact_location: "https://github.com/containernetworking/plugins/releases/download/v{{cni_plugin_version}}/cni-plugins-linux-amd64-v{{cni_plugin_version}}.tgz"
 
 k8s_network:
   cluster_cidr: 10.234.0.0/16         # Overall pod network range for entire cluster
   node_subnet_len: 24                 # portion of cluster_cidr, per node
   service_ip_cidr: 10.233.0.0/18      # ip range for cluster services
-  dns_ip: 10.233.0.10                 # Cluster DNS server IP (coredns).  Must be from {{k8s_network.service_ip_cidr}}
+  dns_ip: 10.233.0.10                 # Cluster DNS server IP (coredns).  Must be from {{k8s_network.service_ip_cidr}} - traditionally x.x.x.10
   cluster_tld: "kubernetes"           # Cluster DNS TLD
 
-flannel_version: v0.14.0
+flannel_version: v0.20.2
 
-coredns_image: coredns/coredns:1.8.4
+coredns_image: coredns/coredns:1.10.0
 
-kube_dashboard_image: kubernetesui/dashboard:v2.3.1
+kube_dashboard_image: kubernetesui/dashboard:v2.7.0
 
 apiserver:
   url: "{% if cluster_vars.dns_server is defined and cluster_vars.dns_server != '' %}https://{{cluster_name}}-apiserver.{{cluster_vars.dns_nameserver_zone}}{% endif %}"
@@ -34,8 +44,8 @@ k8s_config_dir: /etc/kubernetes
 k8s_cert_dir: "{{k8s_config_dir}}/pki"
 k8s_home_kube_dir: "${HOME}/.kube"     # Use this instead of ~/.kube for localhost, because ~ is not expanded by kubectl
 
-playbook_ca_yaml: "{{playbook_dir}}/cluster_defs/{{ cloud_type }}/{{ clusterid }}/{{ region }}/{{ buildenv }}/_ssl/ca.yml"
-playbook_certs_k8s_file: "{{playbook_dir}}/cluster_defs/{{ cloud_type }}/{{ clusterid }}/{{ region }}/{{ buildenv }}/_ssl/k8s_certs_{{cluster_suffix}}.yml"
+playbook_ca_yaml: "{{playbook_dir}}/cluster_defs/{{ cloud_type }}/{{ clusterid | default() }}/{{ region }}/{{ buildenv }}/_ssl/ca.yml"
+playbook_certs_k8s_file: "{{playbook_dir}}/cluster_defs/{{ cloud_type }}/{{ clusterid | default() }}/{{ region }}/{{ buildenv }}/_ssl/k8s_certs_{{cluster_suffix}}.yml"
 
 # all certificates for cluster
 ca_crt_filepath: "{{k8s_cert_dir}}/ca-crt.pem"
@@ -47,7 +57,7 @@ admin_key_filepath: "{{k8s_cert_dir}}/admin-key.pem"
 serviceaccount_crt_filepath: "{{k8s_cert_dir}}/serviceaccount-crt.pem"
 serviceaccount_key_filepath: "{{k8s_cert_dir}}/serviceaccount-key.pem"
 
-etcd_version: v3.4.15
+etcd_version: v3.5.3
 etcd:
   client_cert_file: &etcd_cert_file "{{k8s_cert_dir}}/etcd-crt.pem"
   client_key_file: &etcd_key_file "{{k8s_cert_dir}}/etcd-key.pem"

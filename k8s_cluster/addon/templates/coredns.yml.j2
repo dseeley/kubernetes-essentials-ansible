@@ -22,12 +22,6 @@ rules:
     - list
     - watch
   - apiGroups:
-    - ""
-    resources:
-    - nodes
-    verbs:
-    - get
-  - apiGroups:
     - discovery.k8s.io
     resources:
     - endpointslices
@@ -61,18 +55,16 @@ data:
   Corefile: |
     .:53 {
         errors
-        health
-        log
+        health {
+          lameduck 5s
+        }
         ready
         kubernetes {{ k8s_network.cluster_tld }} in-addr.arpa ip6.arpa {
           pods insecure
           fallthrough in-addr.arpa ip6.arpa
         }
-{#{% if cluster_vars.dns_user_domain is defined and cluster_vars.dns_user_domain != "" %}#}
-{#        k8s_external {{ cluster_vars.dns_user_domain }}#}
-{#{% endif %}#}
-        forward . 8.8.8.8
         prometheus :9153
+        forward . 8.8.8.8
         cache 30
         loop
         reload
@@ -88,6 +80,7 @@ metadata:
   labels:
     k8s-app: kube-dns
     kubernetes.io/name: "CoreDNS"
+    app.kubernetes.io/name: coredns
 spec:
   replicas: 2
   # 1. Default is 1.
@@ -99,18 +92,13 @@ spec:
   selector:
     matchLabels:
       k8s-app: kube-dns
+      app.kubernetes.io/name: coredns
   template:
     metadata:
       labels:
         k8s-app: kube-dns
+        app.kubernetes.io/name: coredns
     spec:
-      topologySpreadConstraints:
-        - maxSkew: 1
-          topologyKey: kubernetes.io/hostname
-          whenUnsatisfiable: ScheduleAnyway
-          labelSelector:
-            matchLabels:
-              k8s-app: kube-dns
       priorityClassName: system-cluster-critical
       serviceAccountName: coredns
       tolerations:
@@ -118,6 +106,15 @@ spec:
           operator: "Exists"
       nodeSelector:
         kubernetes.io/os: linux
+      affinity:
+         podAntiAffinity:
+           requiredDuringSchedulingIgnoredDuringExecution:
+           - labelSelector:
+               matchExpressions:
+               - key: k8s-app
+                 operator: In
+                 values: ["kube-dns"]
+             topologyKey: kubernetes.io/hostname
       containers:
       - name: coredns
         image: {{ coredns_image }}
@@ -186,9 +183,11 @@ metadata:
     k8s-app: kube-dns
     kubernetes.io/cluster-service: "true"
     kubernetes.io/name: "CoreDNS"
+    app.kubernetes.io/name: coredns
 spec:
   selector:
     k8s-app: kube-dns
+    app.kubernetes.io/name: coredns
   clusterIP: {{ k8s_network.dns_ip }}
 {#{% if edge_ingress.keepalived.vip_cidr is defined and edge_ingress.keepalived.vip_cidr != '' %}#}
 {#  externalIPs: [{{edge_ingress.keepalived.vip_cidr | ipaddr('address')}}]#}
@@ -197,9 +196,9 @@ spec:
   - name: dns
     port: 53
     protocol: UDP
-{#  - name: dns-tcp#}
-{#    port: 53#}
-{#    protocol: TCP#}
+  - name: dns-tcp
+    port: 53
+    protocol: TCP
   - name: metrics
     port: 9153
     protocol: TCP

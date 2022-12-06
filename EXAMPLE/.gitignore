@@ -9,3 +9,5 @@ Pipfile.lock
 roles/*
 /gcp__*.json
 id_rsa*
+/cluster_defs/**/_ssl/*
+/test*.yml
