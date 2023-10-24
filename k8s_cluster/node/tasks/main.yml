@@ -14,6 +14,13 @@
         state: absent
       with_items: ["swap", "none"]
 
+    - name: node/hostconfig | apt install
+      become: yes
+      apt:
+        name: ['unzip']  	# 'unzip'  needed for ansible.builtin.unarchive
+        update_cache: True
+
+
 - name: node | Run cloud-specific VIP config (if defined)
   include_tasks: "{{item}}"
   with_first_found: [{ files: ["vips_{{cluster_vars.type}}.yml"], skip: true }]
@@ -23,6 +30,12 @@
   apt:
     update_cache: yes
     name: ['conntrack', 'ipset']
+    state: present
+
+- name: node | load the nf_conntrack module
+  become: yes
+  modprobe:
+    name: nf_conntrack
     state: present
 
 - name: node | install container runtime
@@ -37,11 +50,11 @@
 - name: node | flush handlers
   meta: flush_handlers
 
-- name: node | Wait for nodes to be ready
+- name: node | Wait for nodes to be created (NOT necessarily 'Ready')
   become: yes
   delegate_to: "{{groups['controller'][0]}}"
   uri:
-    url: "{% if apiserver.url is defined and apiserver.url != '' %}{{ apiserver.url }}{% elif apiserver.keepalived.vip_cidr is defined and apiserver.keepalived.vip_cidr != '' %}https://{{apiserver.keepalived.vip_cidr | ipaddr('address')}}{% endif %}:{{apiserver.secure_port}}/api/v1/nodes/"
+    url: "{% if apiserver.url is defined and apiserver.url != '' %}{{ apiserver.url }}{% elif apiserver.keepalived.vip_cidr is defined and apiserver.keepalived.vip_cidr != '' %}https://{{apiserver.keepalived.vip_cidr | ansible.utils.ipaddr('address')}}{% endif %}:{{apiserver.secure_port}}/api/v1/nodes/"
     method: GET
     status_code: 200
     validate_certs: no
@@ -51,9 +64,17 @@
     return_content: yes
   run_once: yes
   register: r__clusternodes_result
-  until: "r__clusternodes_result.status == 200  and  'json' in r__clusternodes_result  and  (not r__clusternodes_result.json['items'] | json_query(\"[].metadata.name\") | symmetric_difference(play_hosts))"
+  until: >
+    r__clusternodes_result.status == 200  and
+    'json' in r__clusternodes_result  and
+    (not r__clusternodes_result.json['items'] | json_query("[].metadata.name") | symmetric_difference(play_hosts))
   retries: 60     #5 minutes
   delay: 5
+
+- name: node | nodes status
+  debug:
+    msg: "{{r__clusternodes_result}}"
+  run_once: yes
 
 - name: node/worker | label all nodes with 'node' role
   become: yes
@@ -95,34 +116,3 @@
             effect: NoExecute
   when: groups['node-edge'] is defined and inventory_hostname in groups['node-edge']
 
-
-- name: node/edge/controller/haproxy-ingress | apply config
-  become: yes
-  delegate_to: "{{groups['controller'][0]}}"
-  shell: "cat <<EOF | kubectl apply -f -\n{{item}}\nEOF"
-#  k8s:
-#    kubeconfig: "{{k8s_home_kube_dir}}/config"
-#    apply: yes
-#    validate: { fail_on_error: yes }
-#    resource_definition: "{{ item | from_yaml }}"
-  loop: "{{ lookup('template', 'templates/haproxy-ingress.yml.j2').split('---') | select() }}"
-  run_once: true
-  when: edge_ingress.controller == "haproxy-ingress"
-
-- name: node/edge/vip/keepalived-vip | apply config
-  become: yes
-  delegate_to: "{{groups['controller'][0]}}"
-  shell: "cat <<EOF | kubectl apply -f -\n{{item}}\nEOF"
-#  k8s:
-#    kubeconfig: "{{k8s_home_kube_dir}}/config"
-#    apply: yes
-#    validate: { fail_on_error: yes }
-#    resource_definition: "{{ item | from_yaml }}"
-  loop: "{{ lookup('template', 'templates/kube-keepalived-vip.yaml.j2').split('---') | select() }}"
-  run_once: true
-  when: edge_ingress.ha_mgr == "kube-keepalived-vip"  and  edge_ingress.keepalived.vip_cidr is defined and edge_ingress.keepalived.vip_cidr != ""
-
-
-#- name: node/edge/controller/gcp | Install application loadbalancer
-#  include_tasks: gce-lb-apps.yml
-#  when: edge_ingress.controller == "gcp_external"

@@ -1,6 +1,12 @@
 ---
 
-  # Note: To get dashboard login token:  kubectl -n kubernetes-dashboard get secret $(kubectl -n kubernetes-dashboard get sa/admin-user -o jsonpath="{.secrets[0].name}") -o go-template="{{.data.token | base64decode}}"
+#- name: testapps | Get homedir (useful for the k8s module, which doesn't like the ${HOME} expansion)
+#  become: yes
+#  command: echo ~
+#  register: homedir
+
+  # Note: To get dashboard temporary login token: kubectl -n kubernetes-dashboard get secret $(kubectl -n kubernetes-dashboard get sa/admin-user -o jsonpath="{.secrets[0].name}") -o go-template="{{.data.token | base64decode}}"
+  # Note: To get dashboard long-lived login token: kubectl get secret admin-user -n kubernetes-dashboard -o jsonpath={".data.token"} | base64 -d "
 - block:
     - name: test/dashboard | apply base config
       become: yes

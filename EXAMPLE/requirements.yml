@@ -5,6 +5,17 @@ roles:
     src: https://github.com/dseeley/clusterverse
     version: master
 
-  - name: kubernetes
-    src: https://github.com/dseeley/kubernetes-essentials-ansible
-    version: master
+#  - name: kubernetes
+#    src: https://github.com/dseeley/kubernetes-essentials-ansible
+#    version: master
+
+collections:
+  - name: dseeley.nested_playbook
+    source: https://galaxy.ansible.com
+
+  - name: dseeley.tasks_serial
+    source: https://galaxy.ansible.com
+
+  - name: dseeley.ansible_vault_pipe
+    source: https://galaxy.ansible.com
+

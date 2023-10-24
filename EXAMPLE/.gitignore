@@ -6,6 +6,10 @@ inventory_*
 venv
 *.pyc
 Pipfile.lock
-roles/*
+/roles/
+/collections/
 /gcp__*.json
 id_rsa*
+/_dynamic_inventory/
+/cluster_defs/**/_ssl/*
+/test*.yml

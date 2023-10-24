@@ -10,7 +10,7 @@
 - name: node/config/kubelet | Download & install
   become: yes
   get_url:
-    url: "https://storage.googleapis.com/kubernetes-release/release/{{ k8s_version }}/bin/linux/{{ 'amd64' if ansible_architecture == 'x86_64' else 'arm64' if ansible_architecture == 'aarch64' else ansible_architecture }}/kubelet"
+    url: "{{k8s_artifact_location}}/kubelet"
     dest: "{{k8s_bin_dir}}/kubelet"
     mode: 0755
   notify: ["restart kubelet"]
@@ -29,7 +29,7 @@
           clusters:
           - cluster:
               certificate-authority-data: {{ ssl_ca['ca-crt.pem'] | b64encode }}
-              server: "{% if apiserver.url is defined and apiserver.url != '' %}{{ apiserver.url }}{% elif apiserver.keepalived.vip_cidr is defined and apiserver.keepalived.vip_cidr != '' %}https://{{apiserver.keepalived.vip_cidr | ipaddr('address')}}{% endif %}:{{apiserver.secure_port}}"
+              server: "{% if apiserver.url is defined and apiserver.url != '' %}{{ apiserver.url }}{% elif apiserver.keepalived.vip_cidr is defined and apiserver.keepalived.vip_cidr != '' %}https://{{apiserver.keepalived.vip_cidr | ansible.utils.ipaddr('address')}}{% endif %}:{{apiserver.secure_port}}"
             name: {{cluster_name}}
           contexts:
           - context:
@@ -63,14 +63,15 @@
               clientCAFile: "{{ca_crt_filepath}}"
           authorization:
             mode: Webhook
+          cgroupDriver: systemd
           clusterDomain: "{{k8s_network.cluster_tld}}"
           clusterDNS:
             - "{{k8s_network.dns_ip}}"
-          podCIDR: ""
-          resolvConf: "/run/systemd/resolve/resolv.conf"
+          resolvConf: /run/systemd/resolve/resolv.conf
           runtimeRequestTimeout: "15m"
           tlsCertFile: "{{k8s_cert_dir}}/{{crt_varname}}"
           tlsPrivateKeyFile: "{{k8s_cert_dir}}/{{key_varname}}"
+          registerNode: true
         dest: "{{ k8s_config_dir }}/kubelet/kubelet-config.yaml"
         force: yes
       notify: ["restart kubelet"]
@@ -88,10 +89,9 @@
           [Service]
           ExecStart={{k8s_bin_dir}}/kubelet \
             --config={{ k8s_config_dir }}/kubelet/kubelet-config.yaml \
-            --container-runtime=remote \
             --container-runtime-endpoint=unix:///var/run/containerd/containerd.sock \
             --kubeconfig={{ k8s_config_dir }}/kubelet/kubeconfig \
-            --register-node=true \
+            --resolv-conf=/run/systemd/resolve/resolv.conf \
             --v=2
           Restart=on-failure
           RestartSec=5
@@ -100,7 +100,7 @@
           WantedBy=multi-user.target
         dest: "/etc/systemd/system/kubelet.service"
         force: yes
-      notify: ["reload systemd", "restart kubelet"]
+      notify: ["reload node systemd", "restart kubelet"]
   vars:
     crt_varname: "kubelet-crt-{{ansible_hostname}}.pem"
     key_varname: "kubelet-key-{{ansible_hostname}}.pem"

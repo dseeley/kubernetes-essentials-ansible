@@ -22,6 +22,7 @@
   elb_target_group:
     aws_access_key: "{{ cluster_vars[buildenv].aws_access_key }}"
     aws_secret_key: "{{ cluster_vars[buildenv].aws_secret_key }}"
+    region: "{{cluster_vars.region}}"
     name: "{{cluster_name}}-apiserver"
     protocol: TCP
     port: "{{ apiserver.secure_port }}"
@@ -42,6 +43,7 @@
   elb_network_lb:
     aws_access_key: "{{ cluster_vars[buildenv].aws_access_key }}"
     aws_secret_key: "{{ cluster_vars[buildenv].aws_secret_key }}"
+    region: "{{cluster_vars.region}}"
     name: "{{cluster_name}}-apiserver"
     subnets: "{{ r__ec2_instance_info.instances | json_query(\"[].subnet_id\") }}"
     scheme: internal
@@ -59,7 +61,19 @@
   debug: msg="{{r__elb_network_lb}}"
   run_once: true
 
-- name: apiserver-lb-awsnlb | create CNAME
+- name: apiserver-lb-awsnlb | Gather info for pre-existing Hosted Zones (public and/or private)
+  route53_info:
+    aws_access_key: "{{cluster_vars[buildenv].aws_access_key}}"
+    aws_secret_key: "{{cluster_vars[buildenv].aws_secret_key}}"
+    query: hosted_zone
+  delegate_to: localhost
+  register: r__route53_info__zones
+
+- name: apiserver-lb-awsnlb | r__route53_info__zones
+  debug: msg="{{r__route53_info__zones}}"
+  run_once: true
+
+- name: apiserver-lb-awsnlb | create CNAME(s)
   route53:
     aws_access_key: "{{cluster_vars[buildenv].aws_access_key}}"
     aws_secret_key: "{{cluster_vars[buildenv].aws_secret_key}}"
@@ -69,8 +83,9 @@
     type: CNAME
     ttl: 30
     value: "{{ r__elb_network_lb.dns_name }}"
-    private_zone: "{{cluster_vars.route53_private_zone | default(true)}}"
+    private_zone: "{{ item.Config.PrivateZone }}"
     overwrite: true
+  with_items: "{{ r__route53_info__zones.HostedZones | json_query(\"[?Name==`\" + cluster_vars.dns_nameserver_zone + \".`]\") }}"
   become: false
   delegate_to: localhost
   run_once: true

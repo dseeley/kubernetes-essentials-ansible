@@ -5,7 +5,7 @@ metadata:
   name: nginx-deployment
   namespace: default
 spec:
-  replicas: 3
+  replicas: 6
   selector:
     matchLabels:
       app: nginx-test
@@ -14,22 +14,28 @@ spec:
       labels:
         app: nginx-test
     spec:
-{#      topologySpreadConstraints:#}
-{#        - maxSkew: 1#}
-{#          topologyKey: kubernetes.io/hostname#}
-{#          whenUnsatisfiable: ScheduleAnyway#}
-{#          labelSelector:#}
-{#            matchLabels:#}
-{#              app: nginx-test#}
-      affinity:
-        podAntiAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-          - weight: 100
-            podAffinityTerm:
-              labelSelector:
-                matchExpressions:
-                - { 'key': 'app', 'operator': 'In', 'values': ['nginx-test'] }
-              topologyKey: "topology.kubernetes.io/zone"
+{#      affinity:#}
+{#        podAntiAffinity:#}
+{#          preferredDuringSchedulingIgnoredDuringExecution:#}
+{#            - podAffinityTerm:#}
+{#                labelSelector:#}
+{#                  matchExpressions: [ { 'key': 'app', 'operator': 'In', 'values': ['nginx-test'] } ]#}
+{#                topologyKey: "topology.kubernetes.io/zone"#}
+{#              weight: 100#}
+{#            - podAffinityTerm:#}
+{#                labelSelector:#}
+{#                  matchExpressions: [ { 'key': 'app', 'operator': 'In', 'values': ['nginx-test'] } ]#}
+{#                topologyKey: "kubernetes.io/hostname"#}
+{#              weight: 100#}
+      topologySpreadConstraints:
+        - maxSkew: 1    # ignored as we're setting whenUnsatisfiable: ScheduleAnyway
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector: { matchLabels: { app: nginx-test } }
+        - maxSkew: 1    # ignored as we're setting whenUnsatisfiable: ScheduleAnyway
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector: { matchLabels: { app: nginx-test } }
       initContainers:
         - name: configworkdir
           image: busybox

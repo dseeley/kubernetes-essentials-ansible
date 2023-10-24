@@ -14,22 +14,28 @@ spec:
       labels:
         app: tcpecho
     spec:
-      affinity:
-        podAntiAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-          - weight: 100
-            podAffinityTerm:
-              labelSelector:
-                matchExpressions:
-                - { 'key': 'app', 'operator': 'In', 'values': ['tcpecho'] }
-              topologyKey: "topology.kubernetes.io/zone"
-{#      topologySpreadConstraints:#}
-{#        - maxSkew: 1#}
-{#          topologyKey: kubernetes.io/hostname#}
-{#          whenUnsatisfiable: ScheduleAnyway#}
-{#          labelSelector:#}
-{#            matchLabels:#}
-{#              app: tcpecho#}
+{#      affinity:#}
+{#        podAntiAffinity:#}
+{#          preferredDuringSchedulingIgnoredDuringExecution:#}
+{#            - podAffinityTerm:#}
+{#                labelSelector:#}
+{#                  matchExpressions: [ { 'key': 'app', 'operator': 'In', 'values': ['tcpecho'] } ]#}
+{#                topologyKey: "topology.kubernetes.io/zone"#}
+{#              weight: 100#}
+{#            - podAffinityTerm:#}
+{#                labelSelector:#}
+{#                  matchExpressions: [ { 'key': 'app', 'operator': 'In', 'values': ['tcpecho'] } ]#}
+{#                topologyKey: "kubernetes.io/hostname"#}
+{#              weight: 100#}
+      topologySpreadConstraints:
+        - maxSkew: 1    # ignored as we're setting whenUnsatisfiable: ScheduleAnyway
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector: { matchLabels: { app: tcpecho } }
+        - maxSkew: 1    # ignored as we're setting whenUnsatisfiable: ScheduleAnyway
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector: { matchLabels: { app: tcpecho } }
       containers:
         - name: tcpecho
           image: dseeley/tcpecho:latest

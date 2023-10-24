@@ -23,7 +23,6 @@ cluster_vars:
     vpc_subnet_name_prefix: "{{buildenv}}-private-{{region}}"
     key_name: "aws_ansible__id_rsa"
     termination_protection: "no"
-#    nsupdate_cfg: {server: "", key_name: "", key_secret: ""}      # If you're using bind9 (or other nsupdate-compatible 'dns_server')
 
     hosttype_vars:
       etcd:

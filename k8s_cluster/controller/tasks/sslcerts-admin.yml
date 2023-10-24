@@ -21,7 +21,7 @@
         subject: { CN: "admin", O: "system:masters", OU: "{{cluster_name}}" }
       register: r__openssl_csr_pipe
 
-    - name: sslcerts/admin | Generate the self-signed CA certificate
+    - name: sslcerts/admin | Generate the self-signed certificate
       community.crypto.x509_certificate_pipe:
         provider: ownca
         ownca_content: "{{ssl_ca['ca-crt.pem']}}"
@@ -30,15 +30,15 @@
         selfsigned_not_after: "+3652d"       # Expiry in 10 years (incl leap years)
       register: r__x509_certificate_pipe
 
-    - name: sslcerts/admin | Vault-encrypt the CA privatekey
-      ansible_vault:
+    - name: sslcerts/admin | Vault-encrypt the privatekey
+      dseeley.ansible_vault_pipe.ansible_vault_pipe:
         plaintext: "{{r__openssl_privatekey_pipe.privatekey}}"
         action: encrypt
-      register: r__ansible_vault_encrypt_ca_privatekey
+      register: r__ansible_vault_encrypted_privatekey
 
     - name: "sslcerts/admin | Create {{ playbook_certs_k8s_file }}"
       copy:
-        content: "{{ {'k8s_certs': k8s_certs|default('')} | combine({'k8s_certs': {'admin-crt.pem': r__x509_certificate_pipe.certificate, 'admin-key.pem': r__ansible_vault_encrypt_ca_privatekey.vaulttext}}, recursive=True) | to_yaml_vaulted }}"
+        content: "{{ {'k8s_certs': k8s_certs|default('')} | combine({'k8s_certs': {'admin-crt.pem': r__x509_certificate_pipe.certificate, 'admin-key.pem': r__ansible_vault_encrypted_privatekey.vaulttext}}, recursive=True) | to_yaml_vaulted }}"
         dest: "{{ playbook_certs_k8s_file }}"
         force: yes
   run_once: yes
