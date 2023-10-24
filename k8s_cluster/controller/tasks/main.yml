@@ -105,7 +105,7 @@
 
     - name: controller | Wait for apiserver to be running loadbalanced
       uri:
-        url: "{% if apiserver.url is defined and apiserver.url != '' %}{{ apiserver.url }}{% elif apiserver.keepalived.vip_cidr is defined and apiserver.keepalived.vip_cidr != '' %}https://{{apiserver.keepalived.vip_cidr | ipaddr('address')}}{% endif %}:{{apiserver.secure_port}}/livez"
+        url: "{% if apiserver.url is defined and apiserver.url != '' %}{{ apiserver.url }}{% elif apiserver.keepalived.vip_cidr is defined and apiserver.keepalived.vip_cidr != '' %}https://{{apiserver.keepalived.vip_cidr | ansible.utils.ipaddr('address')}}{% endif %}:{{apiserver.secure_port}}/livez"
         method: GET
         status_code: 200
         validate_certs: no

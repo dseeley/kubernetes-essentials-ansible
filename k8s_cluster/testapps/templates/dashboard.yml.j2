@@ -18,6 +18,7 @@ metadata:
   name: kubernetes-dashboard
 
 ---
+
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -27,8 +28,9 @@ metadata:
   namespace: kubernetes-dashboard
 
 ---
-apiVersion: v1
+
 kind: Service
+apiVersion: v1
 metadata:
   labels:
     k8s-app: kubernetes-dashboard
@@ -42,6 +44,7 @@ spec:
     k8s-app: kubernetes-dashboard
 
 ---
+
 apiVersion: v1
 kind: Secret
 metadata:
@@ -52,6 +55,7 @@ metadata:
 type: Opaque
 
 ---
+
 apiVersion: v1
 kind: Secret
 metadata:
@@ -64,6 +68,7 @@ data:
   csrf: ""
 
 ---
+
 apiVersion: v1
 kind: Secret
 metadata:
@@ -74,6 +79,7 @@ metadata:
 type: Opaque
 
 ---
+
 kind: ConfigMap
 apiVersion: v1
 metadata:
@@ -83,6 +89,7 @@ metadata:
   namespace: kubernetes-dashboard
 
 ---
+
 kind: Role
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
@@ -112,6 +119,7 @@ rules:
     verbs: ["get"]
 
 ---
+
 kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
@@ -125,6 +133,7 @@ rules:
     verbs: ["get", "list", "watch"]
 
 ---
+
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
@@ -142,6 +151,7 @@ subjects:
     namespace: kubernetes-dashboard
 
 ---
+
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
@@ -156,6 +166,7 @@ subjects:
     namespace: kubernetes-dashboard
 
 ---
+
 kind: Deployment
 apiVersion: apps/v1
 metadata:
@@ -174,9 +185,12 @@ spec:
       labels:
         k8s-app: kubernetes-dashboard
     spec:
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: kubernetes-dashboard
-          image: {{ kube_dashboard_image}}
+          image: {{ kube_dashboard_image }}
           imagePullPolicy: Always
           ports:
             - containerPort: 8443
@@ -187,7 +201,7 @@ spec:
             # Uncomment the following line to manually specify Kubernetes API server Host
             # If not specified, Dashboard will attempt to auto discover the API server and connect
             # to it. Uncomment only if the default does not work.
-            # - --apiserver-host="{% if apiserver.url is defined and apiserver.url != '' %}{{ apiserver.url }}{% elif apiserver.keepalived.vip_cidr is defined and apiserver.keepalived.vip_cidr != '' %}https://{{apiserver.keepalived.vip_cidr | ipaddr('address')}}{% endif %}:{{apiserver.secure_port}}"
+            # - --apiserver-host=http://my-address:port
           volumeMounts:
             - name: kubernetes-dashboard-certs
               mountPath: /certs
@@ -221,6 +235,7 @@ spec:
           effect: NoSchedule
 
 ---
+
 kind: Service
 apiVersion: v1
 metadata:
@@ -236,6 +251,7 @@ spec:
     k8s-app: dashboard-metrics-scraper
 
 ---
+
 kind: Deployment
 apiVersion: apps/v1
 metadata:
@@ -259,7 +275,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: dashboard-metrics-scraper
-          image: kubernetesui/metrics-scraper:v1.0.6
+          image: kubernetesui/metrics-scraper:v1.0.8
           ports:
             - containerPort: 8000
               protocol: TCP
@@ -271,8 +287,8 @@ spec:
             initialDelaySeconds: 30
             timeoutSeconds: 30
           volumeMounts:
-          - mountPath: /tmp
-            name: tmp-volume
+            - mountPath: /tmp
+              name: tmp-volume
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true

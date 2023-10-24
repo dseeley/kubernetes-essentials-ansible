@@ -30,7 +30,7 @@
           {%- endif %}
           {% set _ = SANs.append('IP:' + k8s_network.service_ip_cidr | ipv4('1') | ipv4('address') ) -%}
           {% if apiserver.keepalived.vip_cidr is defined and apiserver.keepalived.vip_cidr != '' -%}
-            {% set _ = SANs.append('IP:' + apiserver.keepalived.vip_cidr | ipaddr('address')) -%}
+            {% set _ = SANs.append('IP:' + apiserver.keepalived.vip_cidr | ansible.utils.ipaddr('address')) -%}
           {%- endif %}
           {% if cluster_vars.dns_nameserver_zone is defined and cluster_vars.dns_nameserver_zone != '' -%}
             {% set _dummy = SANs.append('DNS:*.' + cluster_name + '.' + cluster_vars.dns_nameserver_zone) -%}

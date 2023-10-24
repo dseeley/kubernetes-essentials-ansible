@@ -2,7 +2,7 @@
 
 - name: clusterverse | Deploy the cluster
   hosts: localhost
-  gather_facts: no
+  gather_facts: false
   tasks:
     - { name: "Get dependent roles via ansible-galaxy", local_action: "command ansible-galaxy role install --ignore-errors -fr requirements.yml", tags: ["always"] }
 
@@ -19,11 +19,12 @@
 
 - name: clusterverse | Wait for SSH connections
   hosts: all
-  gather_facts: no
+  gather_facts: false
   tasks: [ {wait_for_connection: "", tags: ["always"] } ]
 
 - name: clusterverse | Configure the cluster
   hosts: all:!not_target_hosts
+  gather_facts: false
   tasks: [ { include_role: { name: "clusterverse/config", apply: { tags: ["clusterverse_config"]} }, tags: ["clusterverse_config"] } ]
 
 
@@ -38,14 +39,7 @@
   hosts: all:localhost
   tasks:
     - assert: { that: "'dseeley.ansible_vault_pipe' in galaxy_collections.keys()", fail_msg: "Please ensure the dseeley.ansible_vault_pipe collection is installed:  ansible-galaxy collection install dseeley.ansible_vault_pipe (or ansible-galaxy collection install --ignore-errors -fr requirements.yml)" }
-      vars:
-        galaxy_collections: |-
-          {% set res = {} -%}
-          {% set _galaxy_lookup = lookup('pipe', 'ansible-galaxy collection list', errors='ignore') -%}     {# Note: We cannot use '--format json' in 'ansible-galaxy collection list' command, as it is not present in 2.10.x  #}
-          {%- for sub in (_galaxy_lookup | ternary(_galaxy_lookup, '') | trim).split('\n') | map('trim') | map('regex_replace', '\\s+', ' ') | select | list -%}
-            {% set _ = res.update({sub.split(' ')[0]: {'version': sub.split(' ')[1]|default('')}}) -%}
-          {%- endfor -%}
-          {{ res }}
+      vars: { galaxy_collections: "{{lookup('pipe', 'ansible-galaxy collection list --format=json', errors='ignore') | from_json | json_query(\"*\") | combine }}" }
 
     - { include_role: { name: "kubernetes/ssl_ownca", apply: { tags: ["kubernetes_ssl_ownca"] } }, tags: ["kubernetes_ssl_ownca"] }
     - { include_vars: "{{ item }}", with_first_found: [{ files: ["{{playbook_certs_k8s_file}}"], skip: true }], tags: ["always"] }
@@ -61,7 +55,7 @@
 
 - name: Kubernetes | Ensure the variables from /cluster_defs are loaded (in particular the new etcd certificate facts)
   hosts: all
-  gather_facts: no
+  gather_facts: false
   tasks: [{ include_role: { name: "clusterverse/_dependencies", apply: { tags: ["always"] } }, tags: ["always"] }]
 
 - name: Kubernetes | k8s cluster common roles

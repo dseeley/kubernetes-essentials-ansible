@@ -29,7 +29,7 @@
           clusters:
           - cluster:
               certificate-authority-data: {{ ssl_ca['ca-crt.pem'] | b64encode }}
-              server: "{% if apiserver.url is defined and apiserver.url != '' %}{{ apiserver.url }}{% elif apiserver.keepalived.vip_cidr is defined and apiserver.keepalived.vip_cidr != '' %}https://{{apiserver.keepalived.vip_cidr | ipaddr('address')}}{% endif %}:{{apiserver.secure_port}}"
+              server: "{% if apiserver.url is defined and apiserver.url != '' %}{{ apiserver.url }}{% elif apiserver.keepalived.vip_cidr is defined and apiserver.keepalived.vip_cidr != '' %}https://{{apiserver.keepalived.vip_cidr | ansible.utils.ipaddr('address')}}{% endif %}:{{apiserver.secure_port}}"
             name: {{cluster_name}}
           contexts:
           - context:
@@ -63,6 +63,7 @@
               clientCAFile: "{{ca_crt_filepath}}"
           authorization:
             mode: Webhook
+          cgroupDriver: systemd
           clusterDomain: "{{k8s_network.cluster_tld}}"
           clusterDNS:
             - "{{k8s_network.dns_ip}}"
@@ -88,9 +89,9 @@
           [Service]
           ExecStart={{k8s_bin_dir}}/kubelet \
             --config={{ k8s_config_dir }}/kubelet/kubelet-config.yaml \
-            --container-runtime=remote \
             --container-runtime-endpoint=unix:///var/run/containerd/containerd.sock \
             --kubeconfig={{ k8s_config_dir }}/kubelet/kubeconfig \
+            --resolv-conf=/run/systemd/resolve/resolv.conf \
             --v=2
           Restart=on-failure
           RestartSec=5

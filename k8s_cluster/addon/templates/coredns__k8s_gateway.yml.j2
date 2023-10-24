@@ -90,12 +90,10 @@ spec:
         k8s-app: "excoredns"
     spec:
       topologySpreadConstraints:
-        - maxSkew: 1
+        - maxSkew: 1    # ignored as we're setting whenUnsatisfiable: ScheduleAnyway
           topologyKey: kubernetes.io/hostname
           whenUnsatisfiable: ScheduleAnyway
-          labelSelector:
-            matchLabels:
-              k8s-app: kube-dns
+          labelSelector: { matchLabels: { k8s-app: kube-dns } }
       serviceAccountName: excoredns
       dnsPolicy: ClusterFirst
       containers:

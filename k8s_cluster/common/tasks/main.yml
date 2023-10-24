@@ -27,16 +27,17 @@
     marker: "# Ansible inventory hosts {mark}"
   when: (cluster_vars.dns_server is not defined  or  cluster_vars.dns_server == '')  or  (cluster_vars.dns_user_domain is not defined  or  cluster_vars.dns_user_domain == "")
 
+- name: common | Allow ip_forward (net.ipv4.ip_forward=1)
+  become: yes
+  sysctl:
+    name: net.ipv4.ip_forward
+    value: 1
+    sysctl_set: yes
+    state: present
+    reload: yes
 
 - name: "common | Enable bridge netfilter manually when a bridging CNI is used (https://github.com/kubernetes/kubernetes/issues/24018)"
   block:
-    - name: common | enable br_netfilter kernel module on boot
-      become: yes
-      lineinfile:
-        line: "br_netfilter"
-        path: /etc/modprobe.d/kubernetes.conf
-        create: true
-
     - name: common | load the br-netfilter module
       become: yes
       modprobe:

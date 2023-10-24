@@ -1,6 +1,5 @@
 ---
 
-
 - name: node/config/containerd | Download and unarchive containerd
   become: yes
   unarchive:
@@ -38,42 +37,72 @@
   vars:
     cni_plugins_dest_dir: "/opt/cni/bin"
 
+- name: node/config/containerd | Configure containerd with SystemdCgroup (https://kubernetes.io/docs/setup/production-environment/container-runtimes/#containerd-systemd)
+  block:
+    - name: "node/config/containerd | create cni config dir ({{cni_conf_dir}})"
+      become: yes
+      file: { path: "{{containerd_conf_dir}}", state: directory }
 
-#- name: node/config/containerd | Configure CNI Networking / Create the bridge network configuration file
-#  become: yes
-#  copy:
-#    content: |
-#      {
-#        "cniVersion": "0.4.0",
-#        "name": "bridge",
-#        "type": "bridge",
-#        "bridge": "cnio0",
-#        "isGateway": true,
-#        "ipMasq": true,
-#        "ipam": {
-#          "type": "host-local",
-#          "ranges": [
-#            [{"subnet": "{{k8s_network.cluster_cidr}}"}]
-#          ],
-#          "routes": [{"dst": "0.0.0.0/0"}]
-#        }
-#      }
-#    dest: "/etc/cni/net.d/10-bridge.conf"
-#    force: yes
-#  notify: ["restart containerd"]
-#
-#- name: node/config/containerd | Configure CNI Networking / Create the loopback network configuration file
-#  become: yes
-#  copy:
-#    content: |
-#      {
-#        "cniVersion": "0.4.0",
-#        "name": "lo",
-#        "type": "loopback"
-#      }
-#    dest: "/etc/cni/net.d/99-loopback.conf"
-#    force: yes
-#  notify: ["restart containerd"]
+    - name: node/config/containerd | Configure containerd with SystemdCgroup - create default config
+      become: yes
+      shell: "/usr/local/bin/containerd config default > {{containerd_conf_dir}}/config.toml"
+      notify: ["restart containerd"]
+
+    - name: node/config/containerd | Configure containerd with SystemdCgroup - set SystemdCgroup = true
+      become: yes
+      ansible.builtin.lineinfile:
+        path: "{{containerd_conf_dir}}/config.toml"
+        regexp: '^( *)SystemdCgroup.*$'
+        line: '\1SystemdCgroup = true'
+        backrefs: yes
+  vars:
+    containerd_conf_dir: "/etc/containerd"
+
+- name: "node/config/containerd | Configure CNI Networking / Create the bridge network configuration file (NOTE: NOT NEEDED when flannel in use - it creates this for you (cni-conf.json), and otherwise conflicts)"
+  block:
+    - name: "node/config/containerd | create cni config dir ({{cni_conf_dir}})"
+      become: yes
+      file: { path: "{{cni_conf_dir}}", state: directory }
+
+    - name: node/config/containerd | Configure CNI Networking / Create the bridge network configuration file
+      become: yes
+      copy:
+        content: |
+          {
+            "cniVersion": "1.0.0",
+            "name": "containerd-net",
+            "plugins": [
+              {
+                "type": "bridge",
+                "bridge": "cni0",
+                "isGateway": true,
+                "ipMasq": true,
+                "promiscMode": true,
+                "ipam": {
+                  "type": "host-local",
+                  "ranges": [
+                    [{"subnet": "{{k8s_network.cluster_cidr}}"}]
+                  ],
+                  "routes": [{"dst": "0.0.0.0/0"}]
+                }
+              },
+              {
+                "type": "portmap",
+                "capabilities": {"portMappings": true},
+                "externalSetMarkChain": "KUBE-MARK-MASQ"
+              },
+              {
+                "name": "lo",
+                "type": "loopback"
+              }
+            ]
+          }
+        dest: "{{cni_conf_dir}}/10-containerd-net.conflist"
+        force: yes
+      notify: ["restart containerd"]
+  vars:
+    cni_conf_dir: "/etc/cni/net.d"
+  when: flannel_version is not defined  or  flannel_version == ""
 
 - name: node/config/containerd | Create the containerd.service systemd unit file
   become: yes
@@ -85,21 +114,22 @@
       After=network.target local-fs.target
 
       [Service]
-      #uncomment to enable the experimental sbservice (sandboxed) version of containerd/cri integration
-      #Environment="ENABLE_CRI_SANDBOXES=sandboxed"
+      #uncomment to fallback to legacy CRI plugin implementation with podsandbox support.
+      #Environment="DISABLE_CRI_SANDBOXES=1"
       ExecStartPre=-/sbin/modprobe overlay
-      ExecStart="/usr/local/bin/containerd"
+      ExecStart=/usr/local/bin/containerd
 
       Type=notify
       Delegate=yes
       KillMode=process
       Restart=always
       RestartSec=5
+
       # Having non-zero Limit*s causes performance problems due to accounting overhead
       # in the kernel. We recommend using cgroups to do container-local accounting.
       LimitNPROC=infinity
       LimitCORE=infinity
-      LimitNOFILE=infinity
+
       # Comment TasksMax if your systemd version does not supports it.
       # Only systemd 226 and above support this version.
       TasksMax=infinity
@@ -110,3 +140,14 @@
     dest: "/etc/systemd/system/containerd.service"
     force: yes
   notify: ["reload node systemd", "restart containerd"]
+
+
+- name: node/config/containerd | Download and install nerdctl
+  become: yes
+  unarchive:
+    remote_src: yes
+    src: "{{ nerdctl_artifact_location }}"
+    dest: /usr/local/bin
+    mode: 0755
+    creates: "/usr/local/bin/nerdctl"
+    include: "nerdctl"

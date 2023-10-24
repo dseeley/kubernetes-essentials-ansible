@@ -1,14 +1,5 @@
 ---
 
-- name: apiserver-lb-ha-keepalived | Allow ip_forward (net.ipv4.ip_forward=1)
-  become: yes
-  sysctl:
-    name: net.ipv4.ip_forward
-    value: 1
-    sysctl_set: yes
-    state: present
-    reload: yes
-
 - name: apiserver-lb-ha-keepalived | Allow apps to bind on non-local addresses (net.ipv4.ip_nonlocal_bind=1)
   become: yes
   sysctl:

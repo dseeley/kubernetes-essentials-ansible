@@ -14,22 +14,29 @@ spec:
       labels:
         app: pyechoserver
     spec:
-      affinity:
-        podAntiAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-          - weight: 100
-            podAffinityTerm:
-              labelSelector:
-                matchExpressions:
-                - { 'key': 'app', 'operator': 'In', 'values': ['pyechoserver'] }
-              topologyKey: "topology.kubernetes.io/zone"
-{#      topologySpreadConstraints:#}
-{#        - maxSkew: 1#}
-{#          topologyKey: kubernetes.io/hostname#}
-{#          whenUnsatisfiable: ScheduleAnyway#}
-{#          labelSelector:#}
-{#            matchLabels:#}
-{#              app: pyechoserver#}
+{#      affinity:#}
+{#        podAntiAffinity:#}
+{#          preferredDuringSchedulingIgnoredDuringExecution:#}
+{#            - podAffinityTerm:#}
+{#                labelSelector:#}
+{#                  matchExpressions: [ { 'key': 'app', 'operator': 'In', 'values': ['pyechoserver'] } ]#}
+{#                topologyKey: "topology.kubernetes.io/zone"#}
+{#              weight: 100#}
+{#            - podAffinityTerm:#}
+{#                labelSelector:#}
+{#                  matchExpressions: [ { 'key': 'app', 'operator': 'In', 'values': ['pyechoserver'] } ]#}
+{#                topologyKey: "kubernetes.io/hostname"#}
+{#              weight: 100#}
+      topologySpreadConstraints:
+        - maxSkew: 1    # ignored as we're setting whenUnsatisfiable: ScheduleAnyway
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector: { matchLabels: { app: pyechoserver } }
+        - maxSkew: 1    # ignored as we're setting whenUnsatisfiable: ScheduleAnyway
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector: { matchLabels: { app: pyechoserver } }
+
       containers:
         - name: pyechoserver
           image: dseeley/pyechoserver:latest
