@@ -3,7 +3,7 @@
 app_name: "awsk8s"                              # The name of the application cluster (e.g. 'couchbase', 'nginx'); becomes part of cluster_name.  Provided is a default to ensure no accidental overwriting.
 
 # A list of CIDRs from which to allow SSH access
-ssh_whitelist:  ['10.0.0.0/8', '82.69.177.168/29']
+ssh_whitelist:  ['10.0.0.0/8']
 
 cluster_vars:
   dns_cloud_internal_domain: "{{region}}.compute.internal"    # The cloud-internal zone as defined by the cloud provider (e.g. GCP, AWS)

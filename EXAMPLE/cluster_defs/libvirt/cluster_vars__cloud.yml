@@ -31,7 +31,7 @@ cluster_vars:
     cloudinit_userdata:
       users:
         - name: ansible
-          ssh_authorized_keys: ['ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQCtwd9dT8W5sPgqjlZwyrzTEP2mgRJWR7rdrBnS/fMpL2mNCoQL88TSTIow6n3c4Tbq6TXzb5PzR6SKKM5ym0GN8vkqv6EHE9tgsd44rCEFbCHlNaevTMp4Z/Y1HVotQmiGMWRJbcvAEzTW1y2c68arC3xogFznHgwKK7o/FOhdLKpd7vEwcKoJ1sjR7iOnPJLrHGg/Eh1Qyx+xlmJAqVm2mLQMAgfntrN/lswXSBhQoxolUaWDsgyHWbyStN+nJJaruXDnBY3u80Tgp0bck1B1S/rBHPl4smCLYFM0LYhsUC8DKLiTwpupuvBLGh6r5ZGA8yeQj04G/sSGtuBVqestFJn6hEamcdrPi6afIIArb2Vba+nGXr52Goq6J6XXU5Z+aLW+nN6IkejM8fJ1Ysi0ALDEMBUIaGhUCWR1GQs5out0RP2qL0mHHpHWKYyD4lFeNoh6XBKDHQ49tUd+WBoFS5RYa2nil9xlOwn04zUcGvk6j9nYj6D7p2EU7EWVkquQ5eQegNIgSitOq6qM5RJzM5ULs1AQo6vGzAWX+PQT8SFTW72M6jJKIeNgW61NaVQ/eV7ro0lFqF+DAxH2DqlGForgrpHSgH33sctv86f0Uo8vTjvlwoAKe/hu9b5U2Ma0gaUaRI4mlqHqIYt71dHA3WKtPReX6XeHMa+Fp23Ezw==']
+          ssh_authorized_keys: ['ssh-rsa AAAAXXXXXX==']
           sudo: "ALL=(ALL) NOPASSWD:ALL"
           lock_passwd: false
           shell: /bin/bash

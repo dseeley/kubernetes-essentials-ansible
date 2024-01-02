@@ -1,19 +1,19 @@
 ---
 
-k8s_version: 1.28.3
+k8s_version: 1.29.0
 k8s_artifact_location: "https://storage.googleapis.com/kubernetes-release/release/v{{k8s_version}}/bin/linux/{{'amd64' if ansible_architecture == 'x86_64' else 'arm64' if ansible_architecture == 'aarch64' else ansible_architecture}}"
 
 ### containerd
-containerd_version: 1.7.7
+containerd_version: 1.7.11
 containerd_artifact_location: "https://github.com/containerd/containerd/releases/download/v{{containerd_version}}/containerd-{{containerd_version}}-linux-{{'amd64' if ansible_architecture == 'x86_64' else 'arm64' if ansible_architecture == 'aarch64' else ansible_architecture}}.tar.gz"
 
-runc_version: 1.1.9
+runc_version: 1.1.11
 runc_artifact_location: "https://github.com/opencontainers/runc/releases/download/v{{runc_version}}/runc.{{'amd64' if ansible_architecture == 'x86_64' else 'arm64' if ansible_architecture == 'aarch64' else ansible_architecture}}"
 
-cni_plugin_version: 1.3.0
+cni_plugin_version: 1.4.0
 cni_plugin_artifact_location: "https://github.com/containernetworking/plugins/releases/download/v{{cni_plugin_version}}/cni-plugins-linux-{{'amd64' if ansible_architecture == 'x86_64' else 'arm64' if ansible_architecture == 'aarch64' else ansible_architecture}}-v{{cni_plugin_version}}.tgz"
 
-nerdctl_version: 1.6.0
+nerdctl_version: 1.7.2
 nerdctl_artifact_location: "https://github.com/containerd/nerdctl/releases/download/v{{nerdctl_version}}/nerdctl-{{nerdctl_version}}-linux-{{'amd64' if ansible_architecture == 'x86_64' else 'arm64' if ansible_architecture == 'aarch64' else ansible_architecture}}.tar.gz"
 ### containerd
 
@@ -24,9 +24,9 @@ k8s_network:
   dns_ip: 10.233.0.10                 # Cluster DNS server IP (coredns).  Must be from {{k8s_network.service_ip_cidr}} - traditionally x.x.x.10
   cluster_tld: "kubernetes"           # Cluster DNS TLD
 
-flannel_version: v0.22.3
+flannel_version: v0.24.0
 
-descheduler_version: v0.28.0
+descheduler_version: v0.28.1
 
 coredns_image: registry.k8s.io/coredns/coredns:v1.11.1
 
@@ -37,14 +37,14 @@ apiserver:
   secure_port: 443
   lb_ha_mgr: ""         # The load-balancing/HA solution for apiserver (because of https://github.com/kubernetes/kubernetes/issues/18174).  e.g.: keepalived_ipvs, awsnlb, gcp_dns_healthcheck
   keepalived:
-    vip_cidr: ""        # MUST be present for apiserver.lb_ha_mgr="keepalived_ipvs"; will be filled automatically for aws/gcp
+    vip_cidr: ""        # MUST be present for apiserver.lb_ha_mgr="keepalived_ipvs"
 
 edge_ingress:
   node_role_name: "edge-ingress"
   controller: ""        # The Ingress Controller.  e.g.: haproxy-ingress
   ha_mgr: ""            # The HA mechanism for node-edge (ingress) nodes.  e.g.: kube-keepalived-vip, awsnlb, gcp_dns_healthcheck
   keepalived:
-    vip_cidr: ""        # MUST be present for edge_ingress.ha_mgr="kube-keepalived-vip"; will be filled automatically for aws/gcp
+    vip_cidr: ""        # MUST be present for edge_ingress.ha_mgr="kube-keepalived-vip"
 
 k8s_bin_dir: /opt/kubernetes
 k8s_config_dir: /etc/kubernetes
