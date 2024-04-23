@@ -1,19 +1,19 @@
 ---
 
-k8s_version: 1.29.0
+k8s_version: 1.30.0
 k8s_artifact_location: "https://storage.googleapis.com/kubernetes-release/release/v{{k8s_version}}/bin/linux/{{'amd64' if ansible_architecture == 'x86_64' else 'arm64' if ansible_architecture == 'aarch64' else ansible_architecture}}"
 
 ### containerd
-containerd_version: 1.7.11
+containerd_version: 1.7.15
 containerd_artifact_location: "https://github.com/containerd/containerd/releases/download/v{{containerd_version}}/containerd-{{containerd_version}}-linux-{{'amd64' if ansible_architecture == 'x86_64' else 'arm64' if ansible_architecture == 'aarch64' else ansible_architecture}}.tar.gz"
 
-runc_version: 1.1.11
+runc_version: 1.1.12
 runc_artifact_location: "https://github.com/opencontainers/runc/releases/download/v{{runc_version}}/runc.{{'amd64' if ansible_architecture == 'x86_64' else 'arm64' if ansible_architecture == 'aarch64' else ansible_architecture}}"
 
-cni_plugin_version: 1.4.0
+cni_plugin_version: 1.4.1
 cni_plugin_artifact_location: "https://github.com/containernetworking/plugins/releases/download/v{{cni_plugin_version}}/cni-plugins-linux-{{'amd64' if ansible_architecture == 'x86_64' else 'arm64' if ansible_architecture == 'aarch64' else ansible_architecture}}-v{{cni_plugin_version}}.tgz"
 
-nerdctl_version: 1.7.2
+nerdctl_version: 1.7.5
 nerdctl_artifact_location: "https://github.com/containerd/nerdctl/releases/download/v{{nerdctl_version}}/nerdctl-{{nerdctl_version}}-linux-{{'amd64' if ansible_architecture == 'x86_64' else 'arm64' if ansible_architecture == 'aarch64' else ansible_architecture}}.tar.gz"
 ### containerd
 
@@ -24,9 +24,9 @@ k8s_network:
   dns_ip: 10.233.0.10                 # Cluster DNS server IP (coredns).  Must be from {{k8s_network.service_ip_cidr}} - traditionally x.x.x.10
   cluster_tld: "kubernetes"           # Cluster DNS TLD
 
-flannel_version: v0.24.0
+flannel_version: v0.25.1
 
-descheduler_version: v0.28.1
+descheduler_version: v0.29.0
 
 coredns_image: registry.k8s.io/coredns/coredns:v1.11.1
 
@@ -64,7 +64,7 @@ admin_key_filepath: "{{k8s_cert_dir}}/admin-key.pem"
 serviceaccount_crt_filepath: "{{k8s_cert_dir}}/serviceaccount-crt.pem"
 serviceaccount_key_filepath: "{{k8s_cert_dir}}/serviceaccount-key.pem"
 
-etcd_version: v3.5.9
+etcd_version: v3.5.13
 etcd:
   client_cert_file: &etcd_cert_file "{{k8s_cert_dir}}/etcd-crt.pem"
   client_key_file: &etcd_key_file "{{k8s_cert_dir}}/etcd-key.pem"

@@ -90,15 +90,27 @@ cluster_vars:
                 - <<: *worker_NET1
                   cloudinit_netplan:
                     ethernets: {eth0: {dhcp4: false, addresses: ["192.168.1.56/25"], gateway4: 192.168.1.1, nameservers: {addresses: ["192.168.1.2", "8.8.8.8", "8.8.4.4"], search: ["{{_dns_nameserver_zone}}"]}}}
+            - networks:
+                - <<: *worker_NET1
+                  cloudinit_netplan:
+                    ethernets: {eth0: {dhcp4: false, addresses: ["192.168.1.66/25"], gateway4: 192.168.1.1, nameservers: {addresses: ["192.168.1.2", "8.8.8.8", "8.8.4.4"], search: ["{{_dns_nameserver_zone}}"]}}}
           b:
             - networks:
                 - <<: *worker_NET1
                   cloudinit_netplan:
                     ethernets: {eth0: {dhcp4: false, addresses: ["192.168.1.57/25"], gateway4: 192.168.1.1, nameservers: {addresses: ["192.168.1.2", "8.8.8.8", "8.8.4.4"], search: ["{{_dns_nameserver_zone}}"]}}}
+            - networks:
+                - <<: *worker_NET1
+                  cloudinit_netplan:
+                    ethernets: {eth0: {dhcp4: false, addresses: ["192.168.1.67/25"], gateway4: 192.168.1.1, nameservers: {addresses: ["192.168.1.2", "8.8.8.8", "8.8.4.4"], search: ["{{_dns_nameserver_zone}}"]}}}
           c:
             - networks:
                 - <<: *worker_NET1
                   cloudinit_netplan:
                     ethernets: {eth0: {dhcp4: false, addresses: ["192.168.1.58/25"], gateway4: 192.168.1.1, nameservers: {addresses: ["192.168.1.2", "8.8.8.8", "8.8.4.4"], search: ["{{_dns_nameserver_zone}}"]}}}
+            - networks:
+                - <<: *worker_NET1
+                  cloudinit_netplan:
+                    ethernets: {eth0: {dhcp4: false, addresses: ["192.168.1.68/25"], gateway4: 192.168.1.1, nameservers: {addresses: ["192.168.1.2", "8.8.8.8", "8.8.4.4"], search: ["{{_dns_nameserver_zone}}"]}}}
 
 _host_ssh_connection_cfg: { <<: *host_ssh_connection_cfg }
